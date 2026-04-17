@@ -1,0 +1,46 @@
+# ---------- Model weights (downloaded via scripts/download_all_models.sh) ----------
+models/**/*
+!models/
+!models/.gitkeep
+
+# ---------- Runtime artifacts ----------
+outputs/**/*
+!outputs/
+!outputs/.gitkeep
+
+uploads/**/*
+!uploads/
+!uploads/.gitkeep
+
+logs/
+.run/
+isolated/
+
+# ---------- Python ----------
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ---------- Go ----------
+go_gateway/go.sum.bak
+*.exe
+
+# ---------- Editor / OS ----------
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---------- Local tool settings ----------
+.claude/settings.local.json
+
+# ---------- Misc ----------
+*.log
+*.pid

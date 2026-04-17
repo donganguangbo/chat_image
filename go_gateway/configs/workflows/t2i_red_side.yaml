@@ -1,0 +1,26 @@
+id: t2i_red_side
+name: Z-Image RED T2I (Side)
+template: ../../../workflows/t2i_zimage_darkbeast_red_side.json
+template_format: api
+mode: t2i
+output_kind: image
+timeout_sec: 1800
+required:
+  - prompt
+  - width
+  - height
+defaults:
+  model_name: redcraftMar0826LatestZib_redzit15AIO_full_bf16.safetensors
+  red_side_lora_aux: ZPenisHelper.safetensors
+  red_side_lora_main: REDZimage1.5_extracted_lora_rank_128.safetensors
+  negative_prompt: "deformed body, bad anatomy, malformed anatomy, disfigured, mutation, malformed limbs, extra limbs, missing limbs, fused limbs, disconnected limbs, broken joints, twisted spine, distorted pelvis, warped torso, asymmetrical body, uneven proportions, extreme proportions, duplicate body, duplicate torso, duplicate face, merged body, bad hands, malformed hands, extra fingers, fused fingers, missing fingers, broken fingers, bad feet, malformed feet, extra toes, fused toes, missing toes, asymmetrical eyes, cross-eye, identity drift, face morphing, perspective distortion, fisheye distortion, close-up distortion, lowres, blurry, out of focus, bad quality, jpeg artifacts, overexposed, underexposed, noisy, text, watermark, logo"
+  seed: -1
+  steps_stage1: 8
+  end_at_step_stage1: 7
+  cfg_stage1: 1.0
+  steps_stage2: 4
+  cfg_stage2: 1.0
+  denoise_stage2: 0.33
+  upscale_by: 2.0
+  width: 832
+  height: 1536

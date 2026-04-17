@@ -1,0 +1,42 @@
+id: inpaint_zimage_lock_red
+name: Z-Image Lock Inpaint (RED Main Preswap)
+template: ../../../workflows/inpaint_zimage_lock_red.json
+template_format: api
+mode: image_edit
+output_kind: image
+timeout_sec: 1800
+required:
+  - prompt
+  - input_image
+  - width
+  - height
+defaults:
+  model_name: redcraftMar0826LatestZib_redzit15AIO_full_bf16.safetensors
+  negative_prompt: "sitting, seated, kneeling, standing, squatting, chair pose, deformed body, bad anatomy, malformed anatomy, disfigured, mutation, mutated body, malformed limbs, extra limbs, missing limbs, fused limbs, disconnected limbs, broken joints, twisted spine, distorted pelvis, warped torso, asymmetrical body, uneven proportions, extreme proportions, giant body parts, inflated body parts, duplicate body, duplicate torso, duplicate face, merged body, bad hands, malformed hands, extra fingers, fused fingers, missing fingers, long fingers, broken fingers, bad feet, malformed feet, extra toes, fused toes, missing toes, perspective distortion, fisheye distortion, close-up distortion, lowres, blurry, out of focus, bad quality, jpeg artifacts, overexposed, underexposed, noisy, bad anatomy, deformed body, disfigured face, asymmetrical eyes, cross-eye, duplicate face, identity drift, face morphing, flicker, frame jitter, temporal inconsistency, extra fingers, fused fingers, missing fingers, extra limbs, broken hands, warped arms, text, watermark, logo"
+  seed: -1
+  steps_stage1: 8
+  end_at_step_stage1: 7
+  cfg_stage1: 1.35
+  steps_stage2: 8
+  cfg_stage2: 1.2
+  denoise_stage2: 0.4
+  upscale_by: 2.0
+  lora_enabled: true
+  lora_name: FOCUSONv1feet.safetensors
+  lora_strength_model: 0.95
+  lora_strength_clip: 0.95
+  lora_scope: before_only
+  refine_enabled: true
+  reactor_enabled: true
+  reactor_swap_model: inswapper_128.onnx
+  reactor_facedetection: retinaface_resnet50
+  reactor_face_restore_model: codeformer-v0.1.0.pth
+  reactor_face_restore_visibility: 0.6
+  reactor_codeformer_weight: 0.5
+  reactor_detect_gender_input: "no"
+  reactor_detect_gender_source: "no"
+  reactor_input_faces_index: "0"
+  reactor_source_faces_index: "0"
+  reactor_console_log_level: 1
+  width: 832
+  height: 1536

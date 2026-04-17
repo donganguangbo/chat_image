@@ -1,0 +1,187 @@
+{
+  "3": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader"
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader"
+  },
+  "52": {
+    "inputs": {
+      "unet_name": "redcraftFeb1126Latest_zibDistilledDX3Lucis.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "81": {
+    "inputs": {
+      "unet_name": "darkbeastz6BlitzBF16.Vii6.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "66": {
+    "inputs": {
+      "lora_name": "REDZ15_DetailDaemonZ_lora_v1.1.safetensors",
+      "strength_model": 1.25,
+      "model": [
+        "52",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly"
+  },
+  "26": {
+    "inputs": {
+      "lora_name": "REDZ15_DetailDaemonZ_lora_v1.1.safetensors",
+      "strength_model": -1.5,
+      "model": [
+        "66",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly"
+  },
+  "48": {
+    "inputs": {
+      "model": [
+        "26",
+        0
+      ],
+      "shift": 1.15
+    },
+    "class_type": "ModelSamplingAuraFlow"
+  },
+  "7": {
+    "inputs": {
+      "text": "{{prompt}}",
+      "clip": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "8": {
+    "inputs": {
+      "text": "{{negative_prompt}}",
+      "clip": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "47": {
+    "inputs": {
+      "conditioning": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut"
+  },
+  "10": {
+    "inputs": {
+      "width": "{{width}}",
+      "height": "{{height}}",
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage"
+  },
+  "9": {
+    "inputs": {
+      "seed": "{{seed}}",
+      "steps": "{{steps_stage1}}",
+      "cfg": "{{cfg_stage1}}",
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": [
+        "48",
+        0
+      ],
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "47",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "78": {
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "upscale_method": "bicubic",
+      "scale_by": "{{upscale_by}}"
+    },
+    "class_type": "LatentUpscaleBy"
+  },
+  "76": {
+    "inputs": {
+      "seed": "{{seed}}",
+      "steps": "{{steps_stage2}}",
+      "cfg": "{{cfg_stage2}}",
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "simple",
+      "denoise": "{{denoise_stage2}}",
+      "model": [
+        "81",
+        0
+      ],
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "47",
+        0
+      ],
+      "latent_image": [
+        "78",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "77": {
+    "inputs": {
+      "samples": [
+        "76",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "79": {
+    "inputs": {
+      "filename_prefix": "{{output_prefix}}_zit",
+      "images": [
+        "77",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  }
+}

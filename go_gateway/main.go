@@ -1,0 +1,2562 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"math/rand"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+type WorkflowConfig struct {
+	ID         string         `yaml:"id"`
+	Name       string         `yaml:"name"`
+	Template   string         `yaml:"template"`
+	TemplateFormat string     `yaml:"template_format"`
+	Mode       string         `yaml:"mode"`
+	OutputKind string         `yaml:"output_kind"`
+	Defaults   map[string]any `yaml:"defaults"`
+	Required   []string       `yaml:"required"`
+	Bindings   []InputBinding `yaml:"bindings"`
+	TimeoutSec int            `yaml:"timeout_sec"`
+
+	ConfigFile   string `yaml:"-"`
+	TemplatePath string `yaml:"-"`
+}
+
+type InputBinding struct {
+	Node  string `yaml:"node"`
+	Input string `yaml:"input"`
+	Param string `yaml:"param"`
+}
+
+type CategoryWorkflowConfig struct {
+	TextToImage string `yaml:"text_to_image"`
+	ImageEdit   string `yaml:"image_edit"`
+	TextToVideo string `yaml:"text_to_video"`
+	ImageToVideo string `yaml:"image_to_video"`
+}
+
+type ServiceConfig struct {
+	ExposeWorkflowCatalog bool                  `yaml:"expose_workflow_catalog"`
+	ExposeRawTaskCreate   bool                  `yaml:"expose_raw_task_create"`
+	DefaultWorkflows      CategoryWorkflowConfig `yaml:"default_workflows"`
+}
+
+type CreateTaskRequest struct {
+	WorkflowID     string         `json:"workflow_id"`
+	Prompt         string         `json:"prompt"`
+	NegativePrompt string         `json:"negative_prompt"`
+	Width          int            `json:"width"`
+	Height         int            `json:"height"`
+	Params         map[string]any `json:"params"`
+}
+
+type CategoryGenerateRequest struct {
+	Prompt         string         `json:"prompt"`
+	NegativePrompt string         `json:"negative_prompt"`
+	Width          int            `json:"width"`
+	Height         int            `json:"height"`
+	InputImage     string         `json:"input_image"`
+	InputImageURL  string         `json:"input_image_url"`
+	InputImageBase64 string       `json:"input_image_base64"`
+	InputImageEnd  string         `json:"input_image_end"`
+	InputImageEndURL string       `json:"input_image_end_url"`
+	InputImageEndBase64 string    `json:"input_image_end_base64"`
+	Params         map[string]any `json:"params"`
+}
+
+type TaskOutput struct {
+	Kind     string `json:"kind"`
+	Filename string `json:"filename"`
+	URL      string `json:"url"`
+	Size     int64  `json:"size"`
+}
+
+type Task struct {
+	ID         string         `json:"id"`
+	WorkflowID string         `json:"workflow_id"`
+	Backend    string         `json:"backend,omitempty"`
+	Status     string         `json:"status"`
+	Progress   int            `json:"progress"`
+	Message    string         `json:"message"`
+	Error      string         `json:"error,omitempty"`
+	PromptID   string         `json:"prompt_id,omitempty"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	Params     map[string]any `json:"params"`
+	Outputs    []TaskOutput   `json:"outputs,omitempty"`
+
+	subscribers map[chan string]struct{}
+}
+
+type TaskEvent struct {
+	Event string `json:"event"`
+	Task  *Task  `json:"task"`
+}
+
+type ComfyClient struct {
+	BaseURL string
+	HTTP    *http.Client
+}
+
+type ComfyPool struct {
+	mu      sync.Mutex
+	clients []*ComfyClient
+	next    int
+}
+
+var imageEditDetailTargetModels = map[string]string{
+	"face":          "bbox/face_yolov8m.pt",
+	"pussy":         "bbox/pussyV2.pt",
+	"nipple":        "bbox/nipple.pt",
+	"breast":        "bbox/female_breast_v3.pt",
+	"female_breast": "bbox/female_breast_v3.pt",
+	"penis":         "bbox/penisV2.pt",
+}
+
+func NewComfyClient(baseURL string) *ComfyClient {
+	return &ComfyClient{
+		BaseURL: strings.TrimRight(baseURL, "/"),
+		HTTP: &http.Client{Timeout: 120 * time.Second},
+	}
+}
+
+func NewComfyPool(urls []string) *ComfyPool {
+	clients := make([]*ComfyClient, 0, len(urls))
+	for _, u := range urls {
+		trimmed := strings.TrimRight(strings.TrimSpace(u), "/")
+		if trimmed == "" {
+			continue
+		}
+		clients = append(clients, NewComfyClient(trimmed))
+	}
+	return &ComfyPool{clients: clients}
+}
+
+func (p *ComfyPool) Next() *ComfyClient {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.clients) == 0 {
+		return nil
+	}
+	if p.next >= len(p.clients) {
+		p.next = 0
+	}
+	c := p.clients[p.next]
+	p.next = (p.next + 1) % len(p.clients)
+	return c
+}
+
+func (p *ComfyPool) URLs() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	out := make([]string, 0, len(p.clients))
+	for _, c := range p.clients {
+		out = append(out, c.BaseURL)
+	}
+	return out
+}
+
+func (c *ComfyClient) QueuePrompt(prompt map[string]any, clientID string) (string, error) {
+	body := map[string]any{"prompt": prompt, "client_id": clientID}
+	buf, _ := json.Marshal(body)
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/prompt", bytes.NewReader(buf))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("comfy /prompt failed: %s", strings.TrimSpace(string(raw)))
+	}
+	var out struct {
+		PromptID string `json:"prompt_id"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	if out.PromptID == "" {
+		return "", errors.New("empty prompt_id from comfy")
+	}
+	return out.PromptID, nil
+}
+
+func (c *ComfyClient) GetHistory(promptID string) (map[string]any, error) {
+	u := c.BaseURL + "/history/" + url.PathEscape(promptID)
+	resp, err := c.HTTP.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("comfy /history failed: %s", strings.TrimSpace(string(raw)))
+	}
+	var out map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *ComfyClient) ViewFile(filename, subfolder, fileType string) ([]byte, error) {
+	q := url.Values{}
+	q.Set("filename", filename)
+	q.Set("subfolder", subfolder)
+	q.Set("type", fileType)
+	u := c.BaseURL + "/view?" + q.Encode()
+	resp, err := c.HTTP.Get(u)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return nil, fmt.Errorf("comfy /view failed: %s", strings.TrimSpace(string(raw)))
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func (c *ComfyClient) UploadImage(localPath string, subfolder string) (string, error) {
+	fh, err := os.Open(localPath)
+	if err != nil {
+		return "", err
+	}
+	defer fh.Close()
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	_ = writer.WriteField("overwrite", "false")
+	_ = writer.WriteField("subfolder", subfolder)
+	part, err := writer.CreateFormFile("image", filepath.Base(localPath))
+	if err != nil {
+		return "", err
+	}
+	if _, err := io.Copy(part, fh); err != nil {
+		return "", err
+	}
+	if err := writer.Close(); err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/upload/image", &body)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("comfy /upload/image failed: %s", strings.TrimSpace(string(raw)))
+	}
+	var out map[string]any
+	if err := json.Unmarshal(raw, &out); err != nil {
+		return "", err
+	}
+	name := asString(out["name"])
+	if name == "" {
+		name = asString(out["filename"])
+	}
+	if name == "" {
+		return "", fmt.Errorf("upload response missing filename: %s", strings.TrimSpace(string(raw)))
+	}
+	returnedSubfolder := asString(out["subfolder"])
+	if returnedSubfolder == "" {
+		return name, nil
+	}
+	return filepath.ToSlash(filepath.Join(returnedSubfolder, name)), nil
+}
+
+func (c *ComfyClient) ConvertWorkflow(ui map[string]any) (map[string]any, error) {
+	endpoints := []string{"/workflow/convert", "/cpe/workflow/convert", "/api/cpe/workflow/convert"}
+	payloads := []map[string]any{
+		{"workflow": ui},
+		{"prompt": ui},
+		{"graph": ui},
+		{"data": ui},
+		ui,
+	}
+
+	var errs []string
+	for _, ep := range endpoints {
+		for _, payload := range payloads {
+			out, status, body, err := c.postJSON(ep, payload)
+			if err != nil {
+				errs = append(errs, fmt.Sprintf("%s -> %v", ep, err))
+				continue
+			}
+			if prompt, ok := extractAPIWorkflow(out); ok {
+				return prompt, nil
+			}
+			keys := mapKeys(out)
+			errs = append(errs, fmt.Sprintf("%s -> %d non-API shape keys=%v body=%q", ep, status, keys, truncate(body, 160)))
+		}
+	}
+	return nil, fmt.Errorf("workflow convert failed on all endpoints: %s", strings.Join(errs, "; "))
+}
+
+func (c *ComfyClient) postJSON(path string, payload any) (map[string]any, int, string, error) {
+	buf, _ := json.Marshal(payload)
+	req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, bytes.NewReader(buf))
+	if err != nil {
+		return nil, 0, "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, 0, "", err
+	}
+	defer resp.Body.Close()
+
+	rawBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	raw := strings.TrimSpace(string(rawBytes))
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		if raw == "" {
+			raw = http.StatusText(resp.StatusCode)
+		}
+		return nil, resp.StatusCode, raw, fmt.Errorf("%s: %s", resp.Status, raw)
+	}
+	if raw == "" {
+		return map[string]any{}, resp.StatusCode, "", nil
+	}
+
+	var out map[string]any
+	if err := json.Unmarshal(rawBytes, &out); err != nil {
+		return nil, resp.StatusCode, raw, err
+	}
+	return out, resp.StatusCode, raw, nil
+}
+
+type Server struct {
+	mu        sync.RWMutex
+	workflows map[string]WorkflowConfig
+	tasks     map[string]*Task
+	queue     chan string
+
+	comfyPool    *ComfyPool
+	service      ServiceConfig
+	workerCount  int
+	outputDir string
+}
+
+func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, service ServiceConfig, workerCount int, outputDir string) *Server {
+	if workerCount <= 0 {
+		workerCount = 1
+	}
+	s := &Server{
+		workflows: workflows,
+		tasks:     map[string]*Task{},
+		queue:     make(chan string, 256),
+		comfyPool: comfyPool,
+		service:   service,
+		workerCount: workerCount,
+		outputDir: outputDir,
+	}
+	for i := 0; i < workerCount; i++ {
+		go s.workerLoop(i + 1)
+	}
+	return s
+}
+
+func (s *Server) workerLoop(_ int) {
+	for id := range s.queue {
+		s.executeTask(id)
+	}
+}
+
+func (s *Server) executeTask(taskID string) {
+	task := s.getTask(taskID)
+	if task == nil {
+		return
+	}
+	comfy := s.comfyPool.Next()
+	if comfy == nil {
+		s.failTask(taskID, errors.New("no comfy backend available"))
+		return
+	}
+	cfg, ok := s.getWorkflow(task.WorkflowID)
+	if !ok {
+		s.failTask(taskID, fmt.Errorf("unknown workflow: %s", task.WorkflowID))
+		return
+	}
+
+	s.updateTask(taskID, func(t *Task) {
+		t.Status = "running"
+		t.Progress = 3
+		t.Message = "loading workflow"
+		t.Backend = comfy.BaseURL
+	})
+
+	tplRaw, err := os.ReadFile(cfg.TemplatePath)
+	if err != nil {
+		s.failTask(taskID, fmt.Errorf("read template failed: %w", err))
+		return
+	}
+	var tplAny any
+	if err := json.Unmarshal(tplRaw, &tplAny); err != nil {
+		s.failTask(taskID, fmt.Errorf("template JSON invalid: %w", err))
+		return
+	}
+	tpl, ok := tplAny.(map[string]any)
+	if !ok {
+		s.failTask(taskID, errors.New("template root must be object"))
+		return
+	}
+
+	templateFormat := strings.TrimSpace(strings.ToLower(cfg.TemplateFormat))
+	if templateFormat == "" {
+		templateFormat = "auto"
+	}
+
+	if templateFormat == "ui" || (templateFormat == "auto" && isUIWorkflow(tpl)) {
+		s.updateTask(taskID, func(t *Task) {
+			t.Progress = 8
+			t.Message = "converting UI workflow"
+		})
+		converted, cerr := comfy.ConvertWorkflow(tpl)
+		if cerr != nil {
+			s.failTask(taskID, fmt.Errorf("workflow convert failed: %w", cerr))
+			return
+		}
+		tpl = converted
+	}
+	if !isAPIWorkflow(tpl) {
+		s.failTask(taskID, fmt.Errorf("workflow is not API shape after conversion (workflow=%s)", cfg.ID))
+		return
+	}
+
+	params := cloneMap(task.Params)
+	if _, ok := params["size_long"]; !ok {
+		w := getInt(params["width"], 0)
+		h := getInt(params["height"], 0)
+		if w > 0 || h > 0 {
+			if w >= h {
+				params["size_long"] = w
+			} else {
+				params["size_long"] = h
+			}
+		}
+	}
+	if _, ok := params["length_frames"]; !ok {
+		durationSec := getInt(params["duration_sec"], 0)
+		fps := getInt(params["fps"], 0)
+		if durationSec > 0 && fps > 0 {
+			params["length_frames"] = durationSec * fps
+		}
+	}
+	if _, ok := params["fps_x2"]; !ok {
+		fps := getInt(params["fps"], 0)
+		if fps > 0 {
+			params["fps_x2"] = float64(fps * 2)
+		}
+	}
+	for _, key := range []string{"input_image", "input_image_end"} {
+		if err := s.materializeImageParam(comfy, taskID, params, key); err != nil {
+			s.failTask(taskID, fmt.Errorf("prepare %s failed: %w", key, err))
+			return
+		}
+	}
+	params["output_prefix"] = fmt.Sprintf("go/%s/%s_%s", cfg.ID, time.Now().Format("20060102_150405"), shortID(taskID))
+
+	renderedAny := renderTemplate(tpl, params)
+	rendered, ok := renderedAny.(map[string]any)
+	if !ok {
+		s.failTask(taskID, errors.New("rendered workflow is not object"))
+		return
+	}
+	if err := applyBindings(rendered, cfg.Bindings, params); err != nil {
+		s.failTask(taskID, fmt.Errorf("apply bindings failed: %w", err))
+		return
+	}
+	if cfg.Mode == "image_edit" || cfg.Mode == "t2i" {
+		if err := applyOptionalImageEditLora(rendered, params, cfg.Mode); err != nil {
+			s.failTask(taskID, fmt.Errorf("apply optional lora failed: %w", err))
+			return
+		}
+	}
+	if cfg.Mode == "image_edit" {
+		refineEnabled := getBool(params["refine_enabled"], false)
+		if err := applyInpaintMultiDetail(rendered, params, refineEnabled); err != nil {
+			s.failTask(taskID, fmt.Errorf("apply multi detail failed: %w", err))
+			return
+		}
+		applyInpaintRefineSwitch(rendered, refineEnabled)
+	}
+
+	promptID, err := comfy.QueuePrompt(rendered, taskID)
+	if err != nil {
+		s.failTask(taskID, err)
+		return
+	}
+
+	s.updateTask(taskID, func(t *Task) {
+		t.PromptID = promptID
+		t.Progress = 15
+		t.Message = "submitted"
+	})
+
+	timeoutSec := cfg.TimeoutSec
+	if timeoutSec <= 0 {
+		timeoutSec = 1800
+	}
+	imageEditAfterNodeIDs := collectImageEditAfterNodeIDs(rendered)
+	outputs, runErr := s.waitForPromptOutputs(
+		comfy,
+		taskID,
+		cfg,
+		promptID,
+		imageEditAfterNodeIDs,
+		timeoutSec,
+		15,
+		90,
+		"running",
+	)
+	if runErr != nil && cfg.Mode == "image_edit" && isMissingImageEditAfterError(runErr) {
+		fallbackPrompt := cloneMap(rendered)
+		applyImageEditNoSwapFallback(fallbackPrompt)
+		fallbackAfterIDs := collectImageEditAfterNodeIDs(fallbackPrompt)
+		fallbackPromptID, qerr := comfy.QueuePrompt(fallbackPrompt, taskID)
+		if qerr != nil {
+			runErr = fmt.Errorf("%v | fallback_no_swap queue failed: %v", runErr, qerr)
+		} else {
+			s.updateTask(taskID, func(t *Task) {
+				t.PromptID = fallbackPromptID
+				t.Progress = maxInt(t.Progress, 50)
+				t.Message = "retry_no_swap"
+			})
+			fallbackOutputs, ferr := s.waitForPromptOutputs(
+				comfy,
+				taskID,
+				cfg,
+				fallbackPromptID,
+				fallbackAfterIDs,
+				timeoutSec,
+				50,
+				95,
+				"retrying_no_swap",
+			)
+			if ferr != nil {
+				runErr = fmt.Errorf("%v | fallback_no_swap failed: %v", runErr, ferr)
+			} else {
+				s.updateTask(taskID, func(t *Task) {
+					t.Status = "completed"
+					t.Progress = 100
+					t.Message = "done_fallback_no_swap"
+					t.Outputs = fallbackOutputs
+				})
+				return
+			}
+		}
+	}
+	if runErr != nil {
+		s.failTask(taskID, runErr)
+		return
+	}
+	s.updateTask(taskID, func(t *Task) {
+		t.Status = "completed"
+		t.Progress = 100
+		t.Message = "done"
+		t.Outputs = outputs
+	})
+}
+
+func (s *Server) waitForPromptOutputs(
+	comfy *ComfyClient,
+	taskID string,
+	cfg WorkflowConfig,
+	promptID string,
+	imageEditAfterNodeIDs []string,
+	timeoutSec int,
+	progressBase int,
+	progressCap int,
+	runningMessage string,
+) ([]TaskOutput, error) {
+	if timeoutSec <= 0 {
+		timeoutSec = 1800
+	}
+	if progressCap < progressBase {
+		progressCap = progressBase
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	started := time.Now()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("timeout waiting comfy history for prompt_id=%s", promptID)
+		case <-ticker.C:
+			history, err := comfy.GetHistory(promptID)
+			if err == nil {
+				if entry := findHistoryEntry(history, promptID); entry != nil {
+					if historyErr := extractComfyHistoryError(entry); historyErr != "" {
+						return nil, fmt.Errorf("comfy workflow failed: %s", historyErr)
+					}
+					outputs, derr := s.downloadOutputs(comfy, taskID, cfg, entry, imageEditAfterNodeIDs)
+					if derr != nil {
+						return nil, derr
+					}
+					return outputs, nil
+				}
+			}
+			elapsed := int(time.Since(started).Seconds())
+			p := progressBase + elapsed
+			if p > progressCap {
+				p = progressCap
+			}
+			s.updateTask(taskID, func(t *Task) {
+				if p > t.Progress {
+					t.Progress = p
+				}
+				t.Message = runningMessage
+			})
+		}
+	}
+}
+
+func isMissingImageEditAfterError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "no image_edit '_after' output produced")
+}
+
+func applyImageEditNoSwapFallback(prompt map[string]any) {
+	if nodeSwap, ok := prompt["50"].(map[string]any); ok {
+		if inputs, ok := nodeSwap["inputs"].(map[string]any); ok {
+			inputs["enabled"] = false
+		}
+	}
+	if nodeAfter, ok := prompt["8"].(map[string]any); ok {
+		if inputs, ok := nodeAfter["inputs"].(map[string]any); ok {
+			inputs["images"] = []any{"39", 0}
+		}
+	}
+	delete(prompt, "80")
+}
+
+func maxInt(a, b int) int {
+	if a >= b {
+		return a
+	}
+	return b
+}
+
+func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg WorkflowConfig, historyEntry map[string]any, imageEditAfterNodeIDs []string) ([]TaskOutput, error) {
+	outputsAny, ok := historyEntry["outputs"].(map[string]any)
+	if !ok {
+		return nil, errors.New("comfy history has no outputs")
+	}
+	afterNodeSet := map[string]struct{}{}
+	for _, id := range imageEditAfterNodeIDs {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			afterNodeSet[id] = struct{}{}
+		}
+	}
+
+	imagesDir := filepath.Join(s.outputDir, "images")
+	videosDir := filepath.Join(s.outputDir, "videos")
+	if err := os.MkdirAll(imagesDir, 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(videosDir, 0o755); err != nil {
+		return nil, err
+	}
+
+	var out []TaskOutput
+	for nodeID, nodeVal := range outputsAny {
+		nodeMap, ok := nodeVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		nodeID = strings.TrimSpace(nodeID)
+		for key, kind := range map[string]string{"images": "image", "videos": "video", "gifs": "video"} {
+			if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) > 0 {
+				if _, ok := afterNodeSet[nodeID]; !ok {
+					continue
+				}
+			}
+			items, _ := nodeMap[key].([]any)
+			for _, item := range items {
+				m, ok := item.(map[string]any)
+				if !ok {
+					continue
+				}
+				filename := asString(m["filename"])
+				subfolder := asString(m["subfolder"])
+				fileType := asString(m["type"])
+				if filename == "" {
+					continue
+				}
+				if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) == 0 {
+					marker := strings.ToLower(filename + " " + subfolder)
+					isAfter := strings.Contains(marker, "_after") &&
+						!strings.Contains(marker, "_after_swap") &&
+						!strings.Contains(marker, "_before")
+					if !isAfter {
+						continue
+					}
+				}
+
+				content, err := comfy.ViewFile(filename, subfolder, fileType)
+				if err != nil {
+					continue
+				}
+
+				ext := strings.ToLower(filepath.Ext(filename))
+				if ext == "" {
+					ext = ".bin"
+				}
+				safeBase := sanitizeName(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
+				if safeBase == "" {
+					safeBase = "out"
+				}
+				safeSubfolder := sanitizeName(strings.Trim(filepath.ToSlash(subfolder), "/"))
+				if safeSubfolder != "" && safeSubfolder != "." {
+					safeBase = safeSubfolder + "_" + safeBase
+				}
+				targetName := fmt.Sprintf("%s_%s_%s%s", shortID(taskID), time.Now().Format("150405"), safeBase, ext)
+				targetDir := imagesDir
+				urlPrefix := "/outputs/images/"
+				if kind == "video" {
+					targetDir = videosDir
+					urlPrefix = "/outputs/videos/"
+				}
+				targetPath := filepath.Join(targetDir, targetName)
+				if err := os.WriteFile(targetPath, content, 0o644); err != nil {
+					continue
+				}
+				stat, _ := os.Stat(targetPath)
+				out = append(out, TaskOutput{
+					Kind:     kind,
+					Filename: targetName,
+					URL:      urlPrefix + targetName,
+					Size:     ifSize(stat),
+				})
+			}
+		}
+	}
+
+	if len(out) == 0 {
+		if cfg.Mode == "image_edit" {
+			if len(afterNodeSet) > 0 {
+				ids := make([]string, 0, len(afterNodeSet))
+				for id := range afterNodeSet {
+					ids = append(ids, id)
+				}
+				sort.Strings(ids)
+				return nil, fmt.Errorf(
+					"no image_edit '_after' output produced for workflow=%s (expected node_ids=%s, expected_state=%s, available=%s)",
+					cfg.ID,
+					strings.Join(ids, ","),
+					summarizeExpectedOutputNodes(outputsAny, ids),
+					summarizeOutputNodes(outputsAny),
+				)
+			}
+			return nil, fmt.Errorf(
+				"no image_edit '_after' output produced for workflow=%s (available=%s)",
+				cfg.ID,
+				summarizeOutputNodes(outputsAny),
+			)
+		}
+		return nil, fmt.Errorf("no output files produced for workflow=%s", cfg.ID)
+	}
+	return out, nil
+}
+
+func summarizeOutputNodes(outputsAny map[string]any) string {
+	if len(outputsAny) == 0 {
+		return "none"
+	}
+	ids := make([]string, 0, len(outputsAny))
+	for id := range outputsAny {
+		ids = append(ids, strings.TrimSpace(id))
+	}
+	sort.Strings(ids)
+	parts := make([]string, 0, len(ids))
+	for _, id := range ids {
+		nodeMap, ok := outputsAny[id].(map[string]any)
+		if !ok {
+			parts = append(parts, id+":invalid")
+			continue
+		}
+		items, _ := nodeMap["images"].([]any)
+		if len(items) == 0 {
+			parts = append(parts, id+":no_images")
+			continue
+		}
+		first, _ := items[0].(map[string]any)
+		filename := asString(first["filename"])
+		subfolder := asString(first["subfolder"])
+		parts = append(parts, fmt.Sprintf("%s:%s|%s", id, filename, subfolder))
+	}
+	return strings.Join(parts, ";")
+}
+
+func summarizeExpectedOutputNodes(outputsAny map[string]any, expectedIDs []string) string {
+	if len(expectedIDs) == 0 {
+		return "none"
+	}
+	parts := make([]string, 0, len(expectedIDs))
+	for _, id := range expectedIDs {
+		nodeMapAny, ok := outputsAny[id]
+		if !ok {
+			parts = append(parts, id+":absent")
+			continue
+		}
+		nodeMap, ok := nodeMapAny.(map[string]any)
+		if !ok {
+			parts = append(parts, id+":invalid")
+			continue
+		}
+		items, _ := nodeMap["images"].([]any)
+		if len(items) == 0 {
+			parts = append(parts, id+":no_images")
+			continue
+		}
+		first, _ := items[0].(map[string]any)
+		filename := asString(first["filename"])
+		subfolder := asString(first["subfolder"])
+		parts = append(parts, fmt.Sprintf("%s:%s|%s", id, filename, subfolder))
+	}
+	return strings.Join(parts, ";")
+}
+
+func collectImageEditAfterNodeIDs(prompt map[string]any) []string {
+	if prompt == nil {
+		return nil
+	}
+	out := make([]string, 0, 2)
+	for nodeID, raw := range prompt {
+		node, ok := raw.(map[string]any)
+		if !ok {
+			continue
+		}
+		if asString(node["class_type"]) != "SaveImage" {
+			continue
+		}
+		inputs, ok := node["inputs"].(map[string]any)
+		if !ok {
+			continue
+		}
+		prefix := strings.ToLower(asString(inputs["filename_prefix"]))
+		if strings.Contains(prefix, "_after") &&
+			!strings.Contains(prefix, "_after_swap") &&
+			!strings.Contains(prefix, "_before") {
+			out = append(out, strings.TrimSpace(nodeID))
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func findHistoryEntry(history map[string]any, promptID string) map[string]any {
+	if v, ok := history[promptID].(map[string]any); ok {
+		return v
+	}
+	for _, v := range history {
+		if m, ok := v.(map[string]any); ok {
+			return m
+		}
+	}
+	return nil
+}
+
+func extractComfyHistoryError(historyEntry map[string]any) string {
+	status, ok := historyEntry["status"].(map[string]any)
+	if ok {
+		if msg := extractComfyStatusMessagesError(status["messages"]); msg != "" {
+			return msg
+		}
+		statusStr := strings.ToLower(strings.TrimSpace(asString(status["status_str"])))
+		if statusStr == "" || statusStr == "success" || statusStr == "completed" {
+			return ""
+		}
+		return "status=" + statusStr
+	}
+	if msg := extractComfyStatusMessagesError(historyEntry["messages"]); msg != "" {
+		return msg
+	}
+	return ""
+}
+
+func extractComfyStatusMessagesError(rawMsgs any) string {
+	msgs, ok := rawMsgs.([]any)
+	if !ok {
+		return ""
+	}
+	// Prefer explicit execution_error / prompt_outputs_failed_validation details.
+	for _, raw := range msgs {
+		msg, ok := raw.([]any)
+		if !ok || len(msg) < 2 {
+			continue
+		}
+		tag := strings.ToLower(strings.TrimSpace(asString(msg[0])))
+		payload, _ := msg[1].(map[string]any)
+		if payload == nil {
+			continue
+		}
+		if tag == "execution_error" || tag == "prompt_outputs_failed_validation" || tag == "execution_interrupted" {
+			errType := asString(payload["exception_type"])
+			errMsg := asString(payload["exception_message"])
+			nodeID := asString(payload["node_id"])
+			nodeType := asString(payload["node_type"])
+			if errMsg == "" {
+				errMsg = asString(payload["message"])
+			}
+			parts := make([]string, 0, 4)
+			if tag != "" {
+				parts = append(parts, tag)
+			}
+			if errType != "" {
+				parts = append(parts, errType)
+			}
+			if nodeID != "" || nodeType != "" {
+				parts = append(parts, fmt.Sprintf("node=%s(%s)", nodeID, nodeType))
+			}
+			if errMsg != "" {
+				parts = append(parts, errMsg)
+			}
+			if len(parts) > 0 {
+				return strings.Join(parts, " | ")
+			}
+		}
+	}
+	return ""
+}
+
+func ifSize(stat os.FileInfo) int64 {
+	if stat == nil {
+		return 0
+	}
+	return stat.Size()
+}
+
+func (s *Server) getWorkflow(id string) (WorkflowConfig, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	cfg, ok := s.workflows[id]
+	return cfg, ok
+}
+
+func (s *Server) createTask(req CreateTaskRequest) (*Task, error) {
+	cfg, ok := s.getWorkflow(req.WorkflowID)
+	if !ok {
+		return nil, fmt.Errorf("workflow not found: %s", req.WorkflowID)
+	}
+
+	params := cloneMap(cfg.Defaults)
+	params["prompt"] = strings.TrimSpace(req.Prompt)
+	if req.NegativePrompt != "" {
+		params["negative_prompt"] = strings.TrimSpace(req.NegativePrompt)
+	}
+	if req.Width > 0 {
+		params["width"] = req.Width
+	}
+	if req.Height > 0 {
+		params["height"] = req.Height
+	}
+	for k, v := range req.Params {
+		params[k] = v
+	}
+	if req.Width > 0 || req.Height > 0 {
+		_, sizeLongInReq := req.Params["size_long"]
+		if !sizeLongInReq {
+			if req.Width >= req.Height {
+				params["size_long"] = req.Width
+			} else {
+				params["size_long"] = req.Height
+			}
+		}
+	}
+
+	if seed := getInt64(params["seed"], -1); seed < 0 {
+		params["seed"] = rand.Int63()
+	}
+	if _, ok := params["end_at_step_stage1"]; !ok {
+		stage1 := getInt(params["steps_stage1"], 1)
+		if stage1 < 1 {
+			stage1 = 1
+		}
+		params["end_at_step_stage1"] = stage1 - 1
+	}
+	if err := normalizeImageEditDetailParams(cfg.Mode, params); err != nil {
+		return nil, err
+	}
+
+	for _, key := range cfg.Required {
+		if !hasRequiredParam(params, key) {
+			return nil, fmt.Errorf("missing required param: %s", key)
+		}
+	}
+
+	now := time.Now().UTC()
+	task := &Task{
+		ID:          genID(),
+		WorkflowID:  cfg.ID,
+		Status:      "queued",
+		Progress:    0,
+		Message:     "queued",
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Params:      params,
+		subscribers: map[chan string]struct{}{},
+	}
+
+	s.mu.Lock()
+	s.tasks[task.ID] = task
+	s.mu.Unlock()
+	s.emit(task)
+
+	s.queue <- task.ID
+	return cloneTask(task), nil
+}
+
+func (s *Server) getTask(id string) *Task {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if t, ok := s.tasks[id]; ok {
+		return cloneTask(t)
+	}
+	return nil
+}
+
+func (s *Server) getTaskRaw(id string) *Task {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tasks[id]
+}
+
+func (s *Server) listTasks() []*Task {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	items := make([]*Task, 0, len(s.tasks))
+	for _, t := range s.tasks {
+		items = append(items, cloneTask(t))
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].CreatedAt.After(items[j].CreatedAt)
+	})
+	return items
+}
+
+func (s *Server) updateTask(id string, fn func(*Task)) {
+	s.mu.Lock()
+	t, ok := s.tasks[id]
+	if !ok {
+		s.mu.Unlock()
+		return
+	}
+	fn(t)
+	t.UpdatedAt = time.Now().UTC()
+	snapshot := cloneTask(t)
+	subs := make([]chan string, 0, len(t.subscribers))
+	for ch := range t.subscribers {
+		subs = append(subs, ch)
+	}
+	s.mu.Unlock()
+	s.emitTo(snapshot, subs)
+}
+
+func (s *Server) failTask(id string, err error) {
+	s.updateTask(id, func(t *Task) {
+		t.Status = "failed"
+		t.Progress = 100
+		t.Message = "failed"
+		t.Error = err.Error()
+	})
+}
+
+func (s *Server) emit(task *Task) {
+	s.mu.RLock()
+	t, ok := s.tasks[task.ID]
+	if !ok {
+		s.mu.RUnlock()
+		return
+	}
+	snapshot := cloneTask(t)
+	subs := make([]chan string, 0, len(t.subscribers))
+	for ch := range t.subscribers {
+		subs = append(subs, ch)
+	}
+	s.mu.RUnlock()
+	s.emitTo(snapshot, subs)
+}
+
+func (s *Server) emitTo(task *Task, subs []chan string) {
+	evt := TaskEvent{Event: "task_update", Task: task}
+	payload, _ := json.Marshal(evt)
+	for _, ch := range subs {
+		select {
+		case ch <- string(payload):
+		default:
+		}
+	}
+}
+
+func (s *Server) subscribe(taskID string) (chan string, func(), error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	t, ok := s.tasks[taskID]
+	if !ok {
+		return nil, nil, fmt.Errorf("task not found")
+	}
+	ch := make(chan string, 32)
+	t.subscribers[ch] = struct{}{}
+	var once sync.Once
+	unsub := func() {
+		once.Do(func() {
+			s.mu.Lock()
+			defer s.mu.Unlock()
+			if tt, ok := s.tasks[taskID]; ok {
+				delete(tt.subscribers, ch)
+			}
+		})
+	}
+	return ch, unsub, nil
+}
+
+func (s *Server) handleWorkflows(w http.ResponseWriter, r *http.Request) {
+	if !s.service.ExposeWorkflowCatalog {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	s.mu.RLock()
+	items := make([]WorkflowConfig, 0, len(s.workflows))
+	for _, cfg := range s.workflows {
+		items = append(items, cfg)
+	}
+	s.mu.RUnlock()
+	sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+	writeJSON(w, http.StatusOK, items)
+}
+
+func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		writeJSON(w, http.StatusOK, s.listTasks())
+	case http.MethodPost:
+		if !s.service.ExposeRawTaskCreate {
+			http.NotFound(w, r)
+			return
+		}
+		var req CreateTaskRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+		req.WorkflowID = strings.TrimSpace(req.WorkflowID)
+		req.Prompt = strings.TrimSpace(req.Prompt)
+		if req.WorkflowID == "" || req.Prompt == "" {
+			http.Error(w, "workflow_id and prompt are required", http.StatusBadRequest)
+			return
+		}
+		task, err := s.createTask(req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, task)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) workflowForCategory(category string) string {
+	switch category {
+	case "t2i":
+		return strings.TrimSpace(s.service.DefaultWorkflows.TextToImage)
+	case "edit":
+		return strings.TrimSpace(s.service.DefaultWorkflows.ImageEdit)
+	case "t2v":
+		return strings.TrimSpace(s.service.DefaultWorkflows.TextToVideo)
+	case "i2v":
+		return strings.TrimSpace(s.service.DefaultWorkflows.ImageToVideo)
+	default:
+		return ""
+	}
+}
+
+func (s *Server) handleGenerate(category string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		workflowID := s.workflowForCategory(category)
+		if workflowID == "" {
+			http.Error(w, "category workflow not configured", http.StatusBadRequest)
+			return
+		}
+
+		var req CategoryGenerateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+			params := cloneMap(req.Params)
+			if img := strings.TrimSpace(req.InputImage); img != "" {
+				params["input_image"] = img
+			}
+			if imgURL := strings.TrimSpace(req.InputImageURL); imgURL != "" {
+				params["input_image_url"] = imgURL
+			}
+			if imgB64 := strings.TrimSpace(req.InputImageBase64); imgB64 != "" {
+				params["input_image_base64"] = imgB64
+			}
+			if imgEnd := strings.TrimSpace(req.InputImageEnd); imgEnd != "" {
+				params["input_image_end"] = imgEnd
+			}
+			if imgEndURL := strings.TrimSpace(req.InputImageEndURL); imgEndURL != "" {
+				params["input_image_end_url"] = imgEndURL
+			}
+			if imgEndB64 := strings.TrimSpace(req.InputImageEndBase64); imgEndB64 != "" {
+				params["input_image_end_base64"] = imgEndB64
+			}
+
+		createReq := CreateTaskRequest{
+			WorkflowID:     workflowID,
+			Prompt:         strings.TrimSpace(req.Prompt),
+			NegativePrompt: strings.TrimSpace(req.NegativePrompt),
+			Width:          req.Width,
+			Height:         req.Height,
+			Params:         params,
+		}
+		if createReq.Prompt == "" {
+			http.Error(w, "prompt is required", http.StatusBadRequest)
+			return
+		}
+
+		task, err := s.createTask(createReq)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, task)
+	}
+}
+
+func (s *Server) handleGenerateCategories(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"categories": []string{"t2i", "edit", "t2v", "i2v"},
+		"endpoints": map[string]string{
+			"t2i":  "/api/v1/generate/t2i",
+			"edit": "/api/v1/generate/edit",
+			"t2v":  "/api/v1/generate/t2v",
+			"i2v":  "/api/v1/generate/i2v",
+		},
+	})
+}
+
+func (s *Server) handleTaskByID(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/tasks/")
+	if path == "" {
+		http.NotFound(w, r)
+		return
+	}
+	parts := strings.Split(path, "/")
+	id := parts[0]
+	if len(parts) == 2 && parts[1] == "stream" {
+		s.handleTaskStream(w, r, id)
+		return
+	}
+	if len(parts) != 1 {
+		http.NotFound(w, r)
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	task := s.getTask(id)
+	if task == nil {
+		http.Error(w, "task not found", http.StatusNotFound)
+		return
+	}
+	writeJSON(w, http.StatusOK, task)
+}
+
+func (s *Server) handleTaskStream(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	ch, unsubscribe, err := s.subscribe(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	defer unsubscribe()
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "stream unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	if task := s.getTask(id); task != nil {
+		evt := TaskEvent{Event: "task_update", Task: task}
+		b, _ := json.Marshal(evt)
+		_, _ = fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", b)
+		flusher.Flush()
+	}
+
+	heartbeat := time.NewTicker(15 * time.Second)
+	defer heartbeat.Stop()
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		case msg, ok := <-ch:
+			if !ok {
+				return
+			}
+			_, _ = fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", msg)
+			flusher.Flush()
+		case <-heartbeat.C:
+			_, _ = fmt.Fprint(w, ": ping\n\n")
+			flusher.Flush()
+		}
+	}
+}
+
+func loadWorkflows(configDir string) (map[string]WorkflowConfig, error) {
+	entries, err := os.ReadDir(configDir)
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]WorkflowConfig{}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := strings.ToLower(e.Name())
+		if !(strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml")) {
+			continue
+		}
+		path := filepath.Join(configDir, e.Name())
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		var cfg WorkflowConfig
+		if err := yaml.Unmarshal(raw, &cfg); err != nil {
+			return nil, fmt.Errorf("yaml parse failed (%s): %w", e.Name(), err)
+		}
+		cfg.ID = strings.TrimSpace(cfg.ID)
+		cfg.Name = strings.TrimSpace(cfg.Name)
+		if cfg.ID == "" {
+			return nil, fmt.Errorf("workflow id missing in %s", e.Name())
+		}
+		if cfg.Template == "" {
+			return nil, fmt.Errorf("workflow template missing in %s", e.Name())
+		}
+		cfg.ConfigFile = path
+		if filepath.IsAbs(cfg.Template) {
+			cfg.TemplatePath = cfg.Template
+		} else {
+			cfg.TemplatePath = filepath.Clean(filepath.Join(filepath.Dir(path), cfg.Template))
+		}
+		cfg.TemplateFormat = strings.TrimSpace(strings.ToLower(cfg.TemplateFormat))
+		if cfg.TemplateFormat == "" {
+			cfg.TemplateFormat = "auto"
+		}
+		if cfg.TemplateFormat != "auto" && cfg.TemplateFormat != "api" && cfg.TemplateFormat != "ui" {
+			return nil, fmt.Errorf("invalid template_format in %s: %s", e.Name(), cfg.TemplateFormat)
+		}
+		if cfg.Defaults == nil {
+			cfg.Defaults = map[string]any{}
+		}
+		if cfg.OutputKind == "" {
+			cfg.OutputKind = "image"
+		}
+			if _, err := os.Stat(cfg.TemplatePath); err != nil {
+				return nil, fmt.Errorf("template not found for workflow=%s: %s", cfg.ID, cfg.TemplatePath)
+			}
+			if _, exists := out[cfg.ID]; exists {
+				return nil, fmt.Errorf("duplicate workflow id: %s", cfg.ID)
+			}
+			out[cfg.ID] = cfg
+		}
+	if len(out) == 0 {
+		return nil, fmt.Errorf("no workflow yaml found under %s", configDir)
+	}
+	return out, nil
+}
+
+func defaultServiceConfig() ServiceConfig {
+	return ServiceConfig{
+		ExposeWorkflowCatalog: false,
+		ExposeRawTaskCreate:   false,
+		DefaultWorkflows: CategoryWorkflowConfig{
+			TextToImage: "t2i_normal",
+			ImageEdit:   "inpaint_zimage_lock",
+			TextToVideo: "t2v_default",
+			ImageToVideo: "i2v_wan_remix_single",
+		},
+	}
+}
+
+func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (ServiceConfig, error) {
+	cfg := defaultServiceConfig()
+	raw, err := os.ReadFile(configPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return cfg, nil
+		}
+		return cfg, err
+	}
+
+	var fileCfg ServiceConfig
+	if err := yaml.Unmarshal(raw, &fileCfg); err != nil {
+		return cfg, fmt.Errorf("service yaml parse failed: %w", err)
+	}
+
+	if strings.TrimSpace(fileCfg.DefaultWorkflows.TextToImage) != "" {
+		cfg.DefaultWorkflows.TextToImage = strings.TrimSpace(fileCfg.DefaultWorkflows.TextToImage)
+	}
+	if strings.TrimSpace(fileCfg.DefaultWorkflows.ImageEdit) != "" {
+		cfg.DefaultWorkflows.ImageEdit = strings.TrimSpace(fileCfg.DefaultWorkflows.ImageEdit)
+	}
+	if strings.TrimSpace(fileCfg.DefaultWorkflows.TextToVideo) != "" {
+		cfg.DefaultWorkflows.TextToVideo = strings.TrimSpace(fileCfg.DefaultWorkflows.TextToVideo)
+	}
+	if strings.TrimSpace(fileCfg.DefaultWorkflows.ImageToVideo) != "" {
+		cfg.DefaultWorkflows.ImageToVideo = strings.TrimSpace(fileCfg.DefaultWorkflows.ImageToVideo)
+	}
+	cfg.ExposeWorkflowCatalog = fileCfg.ExposeWorkflowCatalog
+	cfg.ExposeRawTaskCreate = fileCfg.ExposeRawTaskCreate
+
+	check := func(category, workflowID string) error {
+		if workflowID == "" {
+			return fmt.Errorf("service config missing workflow for category %s", category)
+		}
+		if _, ok := workflows[workflowID]; !ok {
+			return fmt.Errorf("service config category %s points to unknown workflow_id=%s", category, workflowID)
+		}
+		return nil
+	}
+	if err := check("text_to_image", cfg.DefaultWorkflows.TextToImage); err != nil {
+		return cfg, err
+	}
+	if err := check("image_edit", cfg.DefaultWorkflows.ImageEdit); err != nil {
+		return cfg, err
+	}
+	if err := check("text_to_video", cfg.DefaultWorkflows.TextToVideo); err != nil {
+		return cfg, err
+	}
+	if err := check("image_to_video", cfg.DefaultWorkflows.ImageToVideo); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+var fullVar = regexp.MustCompile(`^\{\{\s*([a-zA-Z0-9_]+)\s*\}\}$`)
+var inlineVar = regexp.MustCompile(`\{\{\s*([a-zA-Z0-9_]+)\s*\}\}`)
+
+func renderTemplate(data any, vars map[string]any) any {
+	switch v := data.(type) {
+	case string:
+		if m := fullVar.FindStringSubmatch(v); len(m) == 2 {
+			if got, ok := vars[m[1]]; ok {
+				return got
+			}
+			return v
+		}
+		return inlineVar.ReplaceAllStringFunc(v, func(s string) string {
+			m := inlineVar.FindStringSubmatch(s)
+			if len(m) != 2 {
+				return s
+			}
+			if got, ok := vars[m[1]]; ok {
+				return fmt.Sprint(got)
+			}
+			return s
+		})
+	case map[string]any:
+		out := make(map[string]any, len(v))
+		for k, vv := range v {
+			out[k] = renderTemplate(vv, vars)
+		}
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for i := range v {
+			out[i] = renderTemplate(v[i], vars)
+		}
+		return out
+	default:
+		return data
+	}
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	if in == nil {
+		return map[string]any{}
+	}
+	b, _ := json.Marshal(in)
+	var out map[string]any
+	_ = json.Unmarshal(b, &out)
+	if out == nil {
+		out = map[string]any{}
+	}
+	return out
+}
+
+func cloneTask(t *Task) *Task {
+	if t == nil {
+		return nil
+	}
+	b, _ := json.Marshal(t)
+	var out Task
+	_ = json.Unmarshal(b, &out)
+	out.subscribers = nil
+	return &out
+}
+
+func isUIWorkflow(v any) bool {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return false
+	}
+	_, hasNodes := m["nodes"].([]any)
+	_, hasLinks := m["links"].([]any)
+	return hasNodes && hasLinks
+}
+
+func isAPIWorkflow(m map[string]any) bool {
+	if len(m) == 0 {
+		return false
+	}
+	for k, v := range m {
+		if _, err := strconv.Atoi(strings.TrimSpace(k)); err != nil {
+			return false
+		}
+		node, ok := v.(map[string]any)
+		if !ok {
+			return false
+		}
+		if _, ok := node["class_type"]; !ok {
+			return false
+		}
+		if _, ok := node["inputs"]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func extractAPIWorkflow(m map[string]any) (map[string]any, bool) {
+	if isAPIWorkflow(m) {
+		return m, true
+	}
+	for _, key := range []string{"prompt", "api", "workflow", "data"} {
+		nested, ok := m[key].(map[string]any)
+		if ok && isAPIWorkflow(nested) {
+			return nested, true
+		}
+	}
+	return nil, false
+}
+
+func applyBindings(prompt map[string]any, bindings []InputBinding, params map[string]any) error {
+	for _, b := range bindings {
+		nodeID := strings.TrimSpace(b.Node)
+		inputName := strings.TrimSpace(b.Input)
+		paramName := strings.TrimSpace(b.Param)
+		if nodeID == "" || inputName == "" || paramName == "" {
+			continue
+		}
+		val, ok := params[paramName]
+		if !ok {
+			continue
+		}
+		node, ok := prompt[nodeID].(map[string]any)
+		if !ok {
+			continue
+		}
+		inputs, ok := node["inputs"].(map[string]any)
+		if !ok {
+			continue
+		}
+		inputs[inputName] = val
+	}
+	return nil
+}
+
+func getInt64(v any, fallback int64) int64 {
+	switch x := v.(type) {
+	case int:
+		return int64(x)
+	case int32:
+		return int64(x)
+	case int64:
+		return x
+	case float64:
+		return int64(x)
+	case json.Number:
+		n, err := x.Int64()
+		if err == nil {
+			return n
+		}
+	case string:
+		n, err := strconv.ParseInt(strings.TrimSpace(x), 10, 64)
+		if err == nil {
+			return n
+		}
+	}
+	return fallback
+}
+
+func getInt(v any, fallback int) int {
+	return int(getInt64(v, int64(fallback)))
+}
+
+func getFloat64(v any, fallback float64) float64 {
+	switch x := v.(type) {
+	case float32:
+		return float64(x)
+	case float64:
+		return x
+	case int:
+		return float64(x)
+	case int32:
+		return float64(x)
+	case int64:
+		return float64(x)
+	case json.Number:
+		if f, err := x.Float64(); err == nil {
+			return f
+		}
+	case string:
+		if f, err := strconv.ParseFloat(strings.TrimSpace(x), 64); err == nil {
+			return f
+		}
+	}
+	return fallback
+}
+
+func getBool(v any, fallback bool) bool {
+	switch x := v.(type) {
+	case bool:
+		return x
+	case string:
+		s := strings.TrimSpace(strings.ToLower(x))
+		switch s {
+		case "1", "true", "yes", "on":
+			return true
+		case "0", "false", "no", "off":
+			return false
+		}
+	case int:
+		return x != 0
+	case int32:
+		return x != 0
+	case int64:
+		return x != 0
+	case float32:
+		return x != 0
+	case float64:
+		return x != 0
+	case json.Number:
+		if n, err := x.Int64(); err == nil {
+			return n != 0
+		}
+	}
+	return fallback
+}
+
+func applyOptionalImageEditLora(prompt map[string]any, params map[string]any, mode string) error {
+	if prompt == nil || params == nil {
+		return nil
+	}
+	enabled := getBool(params["lora_enabled"], false)
+	if !enabled {
+		return nil
+	}
+
+	loraName := strings.TrimSpace(asString(params["lora_name"]))
+	if loraName == "" {
+		return nil
+	}
+	loraName = strings.TrimPrefix(loraName, "models/loras/")
+	loraName = strings.TrimPrefix(loraName, "loras/")
+
+	baseNodeID := asString(params["lora_base_node_id"])
+	if baseNodeID == "" {
+		baseNodeID = "69"
+	}
+	baseNode, ok := prompt[baseNodeID].(map[string]any)
+	if !ok {
+		return fmt.Errorf("lora base node not found: %s", baseNodeID)
+	}
+	baseClassType := asString(baseNode["class_type"])
+	if baseClassType == "" {
+		return fmt.Errorf("lora base node class_type missing: %s", baseNodeID)
+	}
+
+	strengthModel := getFloat64(params["lora_strength_model"], 0.8)
+	strengthClip := getFloat64(params["lora_strength_clip"], strengthModel)
+
+	originalNodeIDs := make([]string, 0, len(prompt))
+	for id := range prompt {
+		originalNodeIDs = append(originalNodeIDs, id)
+	}
+
+	newNodeID := strconv.Itoa(maxNumericNodeID(prompt) + 1)
+	prompt[newNodeID] = map[string]any{
+		"inputs": map[string]any{
+			"model":          []any{baseNodeID, 0},
+			"clip":           []any{baseNodeID, 1},
+			"lora_name":      loraName,
+			"strength_model": strengthModel,
+			"strength_clip":  strengthClip,
+		},
+		"class_type": "LoraLoader",
+		"_meta": map[string]any{
+			"title": "LoraLoader",
+		},
+	}
+
+	scope := strings.ToLower(strings.TrimSpace(asString(params["lora_scope"])))
+	if scope == "" && strings.TrimSpace(mode) == "image_edit" {
+		// For image_edit flows, default to applying LoRA on the initial generation chain
+		// and keep face-detail/refine branch on base model to avoid pose drift.
+		scope = "before_only"
+	}
+	if scope == "before_only" && strings.TrimSpace(mode) == "image_edit" {
+		excludeClass := map[string]struct{}{
+			"FaceDetailer": {},
+		}
+		relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 0, newNodeID, 0, excludeClass)
+		relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1, excludeClass)
+	} else {
+		relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 0, newNodeID, 0)
+		relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1)
+	}
+	return nil
+}
+
+func normalizeImageEditDetailParams(mode string, params map[string]any) error {
+	if strings.TrimSpace(mode) != "image_edit" || params == nil {
+		return nil
+	}
+
+	models := make([]string, 0, 6)
+	seen := map[string]struct{}{}
+	addModel := func(model string) {
+		m := normalizeBBoxModelPath(model)
+		if m == "" {
+			return
+		}
+		if _, ok := seen[m]; ok {
+			return
+		}
+		seen[m] = struct{}{}
+		models = append(models, m)
+	}
+	addTarget := func(target string) error {
+		t := strings.ToLower(strings.TrimSpace(target))
+		if t == "" {
+			return nil
+		}
+		model, ok := imageEditDetailTargetModels[t]
+		if !ok {
+			return fmt.Errorf("invalid params.detail_target=%q, allowed: %s", t, strings.Join(allowedDetailTargets(), ", "))
+		}
+		addModel(model)
+		return nil
+	}
+
+	for _, target := range asStringSlice(params["detail_targets"]) {
+		if err := addTarget(target); err != nil {
+			return err
+		}
+	}
+	if target := asString(params["detail_target"]); target != "" {
+		if err := addTarget(target); err != nil {
+			return err
+		}
+	}
+
+	for _, model := range asStringSlice(params["detail_bbox_models"]) {
+		addModel(model)
+	}
+	if model := asString(params["detail_bbox_model"]); model != "" {
+		addModel(model)
+	}
+
+	if len(models) == 0 {
+		return nil
+	}
+	params["detail_bbox_model"] = models[0]
+	modelsAny := make([]any, 0, len(models))
+	for _, model := range models {
+		modelsAny = append(modelsAny, model)
+	}
+	params["detail_bbox_models"] = modelsAny
+	return nil
+}
+
+func allowedDetailTargets() []string {
+	out := make([]string, 0, len(imageEditDetailTargetModels))
+	for k := range imageEditDetailTargetModels {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+
+func asStringSlice(v any) []string {
+	switch x := v.(type) {
+	case nil:
+		return nil
+	case string:
+		return splitCSVLike(x)
+	case []string:
+		out := make([]string, 0, len(x))
+		for _, item := range x {
+			s := strings.TrimSpace(item)
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	case []any:
+		out := make([]string, 0, len(x))
+		for _, item := range x {
+			s := asString(item)
+			if s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		s := asString(v)
+		if s == "" {
+			return nil
+		}
+		return splitCSVLike(s)
+	}
+}
+
+func splitCSVLike(raw string) []string {
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ';' || r == '\n' || r == '\r' || r == '\t'
+	})
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		s := strings.TrimSpace(part)
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func normalizeBBoxModelPath(model string) string {
+	s := strings.TrimSpace(model)
+	if s == "" {
+		return ""
+	}
+	if !strings.Contains(s, "/") {
+		return "bbox/" + s
+	}
+	return s
+}
+
+func applyInpaintMultiDetail(prompt map[string]any, params map[string]any, refineEnabled bool) error {
+	if !refineEnabled || prompt == nil {
+		return nil
+	}
+
+	models := make([]string, 0, 6)
+	seen := map[string]struct{}{}
+	for _, model := range asStringSlice(params["detail_bbox_models"]) {
+		m := normalizeBBoxModelPath(model)
+		if m == "" {
+			continue
+		}
+		if _, ok := seen[m]; ok {
+			continue
+		}
+		seen[m] = struct{}{}
+		models = append(models, m)
+	}
+	if len(models) == 0 {
+		if single := normalizeBBoxModelPath(asString(params["detail_bbox_model"])); single != "" {
+			models = append(models, single)
+		}
+	}
+	if len(models) <= 1 {
+		return nil
+	}
+
+	baseDetector, ok := prompt["61"].(map[string]any)
+	if !ok {
+		return errors.New("workflow missing node 61 (UltralyticsDetectorProvider)")
+	}
+	baseDetectorInputs, ok := baseDetector["inputs"].(map[string]any)
+	if !ok {
+		return errors.New("workflow node 61 inputs invalid")
+	}
+	baseDetectorInputs["model_name"] = models[0]
+
+	baseDetailer, ok := prompt["60"].(map[string]any)
+	if !ok {
+		return errors.New("workflow missing node 60 (FaceDetailer)")
+	}
+	if _, ok := baseDetailer["inputs"].(map[string]any); !ok {
+		return errors.New("workflow node 60 inputs invalid")
+	}
+
+	originalNodeIDs := make([]string, 0, len(prompt))
+	for id := range prompt {
+		originalNodeIDs = append(originalNodeIDs, id)
+	}
+
+	nextID := maxNumericNodeID(prompt) + 1
+	previousDetailerID := "60"
+	for _, model := range models[1:] {
+		detectorClone, err := deepCopyNodeMap(baseDetector)
+		if err != nil {
+			return fmt.Errorf("clone detector failed: %w", err)
+		}
+		detectorInputs, _ := detectorClone["inputs"].(map[string]any)
+		detectorInputs["model_name"] = model
+		detectorID := strconv.Itoa(nextID)
+		nextID++
+		prompt[detectorID] = detectorClone
+
+		detailerClone, err := deepCopyNodeMap(baseDetailer)
+		if err != nil {
+			return fmt.Errorf("clone detailer failed: %w", err)
+		}
+		detailerInputs, _ := detailerClone["inputs"].(map[string]any)
+		detailerInputs["bbox_detector"] = []any{detectorID, 0}
+		detailerInputs["image"] = []any{previousDetailerID, 0}
+		detailerID := strconv.Itoa(nextID)
+		nextID++
+		prompt[detailerID] = detailerClone
+
+		previousDetailerID = detailerID
+	}
+
+	relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, "60", 0, previousDetailerID, 0)
+	return nil
+}
+
+func relinkNodeInputSourceForNodeIDs(prompt map[string]any, nodeIDs []string, fromNodeID string, fromSlot int, toNodeID string, toSlot int) {
+	for _, nodeID := range nodeIDs {
+		rawNode, ok := prompt[nodeID]
+		if !ok {
+			continue
+		}
+		node, ok := rawNode.(map[string]any)
+		if !ok {
+			continue
+		}
+		inputs, ok := node["inputs"].(map[string]any)
+		if !ok {
+			continue
+		}
+		for inputName, rawInput := range inputs {
+			sourceID, sourceSlot, ok := parseNodeLink(rawInput)
+			if !ok {
+				continue
+			}
+			if sourceID == fromNodeID && sourceSlot == fromSlot {
+				inputs[inputName] = []any{toNodeID, toSlot}
+			}
+		}
+	}
+}
+
+func relinkNodeInputSourceForNodeIDsExcludingClass(
+	prompt map[string]any,
+	nodeIDs []string,
+	fromNodeID string,
+	fromSlot int,
+	toNodeID string,
+	toSlot int,
+	excludeClass map[string]struct{},
+) {
+	for _, nodeID := range nodeIDs {
+		rawNode, ok := prompt[nodeID]
+		if !ok {
+			continue
+		}
+		node, ok := rawNode.(map[string]any)
+		if !ok {
+			continue
+		}
+		classType := strings.TrimSpace(asString(node["class_type"]))
+		if _, skip := excludeClass[classType]; skip {
+			continue
+		}
+		inputs, ok := node["inputs"].(map[string]any)
+		if !ok {
+			continue
+		}
+		for inputName, rawInput := range inputs {
+			sourceID, sourceSlot, ok := parseNodeLink(rawInput)
+			if !ok {
+				continue
+			}
+			if sourceID == fromNodeID && sourceSlot == fromSlot {
+				inputs[inputName] = []any{toNodeID, toSlot}
+			}
+		}
+	}
+}
+
+func parseNodeLink(v any) (string, int, bool) {
+	link, ok := v.([]any)
+	if !ok || len(link) != 2 {
+		return "", 0, false
+	}
+	nodeID := asString(link[0])
+	if nodeID == "" {
+		return "", 0, false
+	}
+	slot := getInt(link[1], 0)
+	return nodeID, slot, true
+}
+
+func maxNumericNodeID(prompt map[string]any) int {
+	maxID := 0
+	for key := range prompt {
+		n, err := strconv.Atoi(strings.TrimSpace(key))
+		if err != nil {
+			continue
+		}
+		if n > maxID {
+			maxID = n
+		}
+	}
+	return maxID
+}
+
+func deepCopyNodeMap(src map[string]any) (map[string]any, error) {
+	raw, err := json.Marshal(src)
+	if err != nil {
+		return nil, err
+	}
+	var dst map[string]any
+	if err := json.Unmarshal(raw, &dst); err != nil {
+		return nil, err
+	}
+	return dst, nil
+}
+
+func applyInpaintRefineSwitch(prompt map[string]any, refineEnabled bool) {
+	// Keep default chain when refine is enabled.
+	if refineEnabled {
+		return
+	}
+	// Match Python gateway behavior:
+	// - route final SaveImage to ReActor output (node 50)
+	// - drop extra after_swap save node (node 80)
+	if nodeAfter, ok := prompt["8"].(map[string]any); ok {
+		if inputs, ok := nodeAfter["inputs"].(map[string]any); ok {
+			inputs["images"] = []any{"50", 0}
+		}
+	}
+	delete(prompt, "80")
+}
+
+func isEmptyValue(v any) bool {
+	if v == nil {
+		return true
+	}
+	s := strings.TrimSpace(fmt.Sprint(v))
+	return s == ""
+}
+
+func hasRequiredParam(params map[string]any, key string) bool {
+	if !isEmptyValue(params[key]) {
+		return true
+	}
+	switch key {
+	case "input_image":
+		return !isEmptyValue(params["input_image_url"]) || !isEmptyValue(params["input_image_base64"])
+	case "input_image_end":
+		return !isEmptyValue(params["input_image_end_url"]) || !isEmptyValue(params["input_image_end_base64"])
+	default:
+		return false
+	}
+}
+
+func asString(v any) string {
+	if v == nil {
+		return ""
+	}
+	switch x := v.(type) {
+	case string:
+		return strings.TrimSpace(x)
+	}
+	s := strings.TrimSpace(fmt.Sprint(v))
+	if s == "<nil>" {
+		return ""
+	}
+	return s
+}
+
+func mapKeys(m map[string]any) []string {
+	if m == nil {
+		return nil
+	}
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	if len(keys) > 8 {
+		return keys[:8]
+	}
+	return keys
+}
+
+func truncate(s string, max int) string {
+	if max <= 0 || len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
+func sanitizeName(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, "\\", "_")
+	s = strings.ReplaceAll(s, "/", "_")
+	s = strings.ReplaceAll(s, ":", "_")
+	s = strings.ReplaceAll(s, " ", "_")
+	return s
+}
+
+func resolveExistingPath(input string) (string, bool) {
+	p := strings.TrimSpace(input)
+	if p == "" {
+		return "", false
+	}
+	if strings.HasPrefix(p, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			p = filepath.Join(home, strings.TrimPrefix(p, "~/"))
+		}
+	}
+	if stat, err := os.Stat(p); err == nil && !stat.IsDir() {
+		abs, aerr := filepath.Abs(p)
+		if aerr == nil {
+			return abs, true
+		}
+		return p, true
+	}
+	return "", false
+}
+
+func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params map[string]any, key string) error {
+	raw := asString(params[key])
+	rawURL := asString(params[key+"_url"])
+	rawBase64 := asString(params[key+"_base64"])
+
+	var localPath string
+	var cleanupPath string
+
+	switch {
+	case rawURL != "":
+		p, err := downloadImageFromURL(rawURL)
+		if err != nil {
+			return err
+		}
+		localPath = p
+		cleanupPath = p
+	case rawBase64 != "":
+		p, err := decodeBase64ImageToTemp(rawBase64)
+		if err != nil {
+			return err
+		}
+		localPath = p
+		cleanupPath = p
+	case raw != "":
+		if p, ok := resolveExistingPath(raw); ok {
+			localPath = p
+		} else {
+			// Not a local path: keep original value for Comfy-side input resolution.
+			return nil
+		}
+	default:
+		return nil
+	}
+
+	if cleanupPath != "" {
+		defer func() { _ = os.Remove(cleanupPath) }()
+	}
+
+	s.updateTask(taskID, func(t *Task) {
+		if t.Progress < 10 {
+			t.Progress = 10
+		}
+		t.Message = "uploading input image"
+	})
+	uploaded, err := comfy.UploadImage(localPath, "go_gateway_uploads")
+	if err != nil {
+		return err
+	}
+	params[key] = uploaded
+	return nil
+}
+
+func downloadImageFromURL(rawURL string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return "", fmt.Errorf("invalid image url: %w", err)
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", errors.New("image url must be http or https")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "chat-image-go-gateway/1.0")
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		return "", fmt.Errorf("download image failed: %s %s", resp.Status, strings.TrimSpace(string(raw)))
+	}
+
+	const maxSize = int64(50 << 20)
+	payload, err := io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
+	if err != nil {
+		return "", err
+	}
+	if int64(len(payload)) > maxSize {
+		return "", fmt.Errorf("remote image too large: %d bytes", len(payload))
+	}
+	if len(payload) == 0 {
+		return "", errors.New("remote image is empty")
+	}
+
+	ext := inferImageExt(resp.Header.Get("Content-Type"), u.Path, payload)
+	tmp, err := os.CreateTemp("", "go_gateway_img_*"+ext)
+	if err != nil {
+		return "", err
+	}
+	defer tmp.Close()
+	if _, err := tmp.Write(payload); err != nil {
+		return "", err
+	}
+	return tmp.Name(), nil
+}
+
+func decodeBase64ImageToTemp(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return "", errors.New("empty base64 image")
+	}
+
+	contentType := ""
+	if strings.HasPrefix(strings.ToLower(s), "data:") {
+		comma := strings.Index(s, ",")
+		if comma <= 0 {
+			return "", errors.New("invalid data url image")
+		}
+		head := s[:comma]
+		if !strings.Contains(strings.ToLower(head), ";base64") {
+			return "", errors.New("data url is not base64")
+		}
+		parts := strings.SplitN(head, ";", 2)
+		contentType = strings.TrimPrefix(parts[0], "data:")
+		s = s[comma+1:]
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(s)
+	if err != nil {
+		normalized := strings.ReplaceAll(strings.ReplaceAll(s, "-", "+"), "_", "/")
+		if m := len(normalized) % 4; m != 0 {
+			normalized += strings.Repeat("=", 4-m)
+		}
+		decoded, err = base64.StdEncoding.DecodeString(normalized)
+		if err != nil {
+			return "", fmt.Errorf("decode base64 image failed: %w", err)
+		}
+	}
+	if len(decoded) == 0 {
+		return "", errors.New("base64 image is empty")
+	}
+	if len(decoded) > 50<<20 {
+		return "", fmt.Errorf("base64 image too large: %d bytes", len(decoded))
+	}
+
+	ext := inferImageExt(contentType, "", decoded)
+	tmp, err := os.CreateTemp("", "go_gateway_img_b64_*"+ext)
+	if err != nil {
+		return "", err
+	}
+	defer tmp.Close()
+	if _, err := tmp.Write(decoded); err != nil {
+		return "", err
+	}
+	return tmp.Name(), nil
+}
+
+func inferImageExt(contentType, path string, payload []byte) string {
+	switch strings.ToLower(strings.TrimSpace(contentType)) {
+	case "image/png":
+		return ".png"
+	case "image/jpeg", "image/jpg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	case "image/bmp":
+		return ".bmp"
+	case "image/avif":
+		return ".avif"
+	default:
+		if mediaType, _, err := mime.ParseMediaType(contentType); err == nil {
+			switch strings.ToLower(mediaType) {
+			case "image/png":
+				return ".png"
+			case "image/jpeg", "image/jpg":
+				return ".jpg"
+			case "image/webp":
+				return ".webp"
+			case "image/gif":
+				return ".gif"
+			case "image/bmp":
+				return ".bmp"
+			case "image/avif":
+				return ".avif"
+			}
+		}
+	}
+
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp", ".avif":
+		return ext
+	}
+
+	switch strings.ToLower(http.DetectContentType(payload)) {
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/webp":
+		return ".webp"
+	case "image/gif":
+		return ".gif"
+	case "image/bmp":
+		return ".bmp"
+	}
+	return ".png"
+}
+
+func shortID(id string) string {
+	if len(id) <= 8 {
+		return id
+	}
+	return id[:8]
+}
+
+func genID() string {
+	return fmt.Sprintf("%x%x", time.Now().UnixNano(), rand.Uint64())
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func main() {
+	rand.Seed(time.Now().UnixNano())
+
+	configDir := env("WORKFLOW_CONFIG_DIR", "./configs/workflows")
+	serviceConfigFile := env("SERVICE_CONFIG_FILE", "./configs/service.yaml")
+	comfyURLs := parseComfyURLs()
+	listenAddr := env("LISTEN_ADDR", ":8090")
+	outputDir := env("OUTPUT_DIR", "../outputs")
+
+	absConfigDir, _ := filepath.Abs(configDir)
+	absServiceConfigFile, _ := filepath.Abs(serviceConfigFile)
+	absOutputDir, _ := filepath.Abs(outputDir)
+	if err := os.MkdirAll(filepath.Join(absOutputDir, "images"), 0o755); err != nil {
+		log.Fatalf("mkdir outputs/images failed: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(absOutputDir, "videos"), 0o755); err != nil {
+		log.Fatalf("mkdir outputs/videos failed: %v", err)
+	}
+
+	workflows, err := loadWorkflows(absConfigDir)
+	if err != nil {
+		log.Fatalf("load workflows failed: %v", err)
+	}
+	log.Printf("loaded workflows: %d", len(workflows))
+	for _, cfg := range workflows {
+		log.Printf("- %s -> %s", cfg.ID, cfg.TemplatePath)
+	}
+	serviceCfg, err := loadServiceConfig(absServiceConfigFile, workflows)
+	if err != nil {
+		log.Fatalf("load service config failed: %v", err)
+	}
+	log.Printf(
+		"category defaults: t2i=%s edit=%s t2v=%s i2v=%s",
+		serviceCfg.DefaultWorkflows.TextToImage,
+		serviceCfg.DefaultWorkflows.ImageEdit,
+		serviceCfg.DefaultWorkflows.TextToVideo,
+		serviceCfg.DefaultWorkflows.ImageToVideo,
+	)
+	log.Printf("expose internal: workflows=%v raw_task_create=%v", serviceCfg.ExposeWorkflowCatalog, serviceCfg.ExposeRawTaskCreate)
+
+	comfyPool := NewComfyPool(comfyURLs)
+	if len(comfyPool.URLs()) == 0 {
+		log.Fatal("no comfy backends configured (set COMFY_URL or COMFY_URLS)")
+	}
+	workerCount := envInt("GO_WORKERS", len(comfyPool.URLs()))
+	srv := NewServer(workflows, comfyPool, serviceCfg, workerCount, absOutputDir)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/generate/categories", srv.handleGenerateCategories)
+	mux.HandleFunc("/api/v1/generate/t2i", srv.handleGenerate("t2i"))
+	mux.HandleFunc("/api/v1/generate/edit", srv.handleGenerate("edit"))
+	mux.HandleFunc("/api/v1/generate/t2v", srv.handleGenerate("t2v"))
+	mux.HandleFunc("/api/v1/generate/i2v", srv.handleGenerate("i2v"))
+	mux.HandleFunc("/api/v1/workflows", srv.handleWorkflows)
+	mux.HandleFunc("/api/v1/tasks", srv.handleTasks)
+	mux.HandleFunc("/api/v1/tasks/", srv.handleTaskByID)
+	mux.Handle("/outputs/", http.StripPrefix("/outputs/", http.FileServer(http.Dir(absOutputDir))))
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "time": time.Now().UTC()})
+	})
+
+	log.Printf("go gateway listening on %s", listenAddr)
+	log.Printf("comfy backends: %s", strings.Join(comfyPool.URLs(), ", "))
+	log.Printf("go workers: %d", workerCount)
+	log.Printf("config dir: %s", absConfigDir)
+	log.Printf("service config: %s", absServiceConfigFile)
+	log.Printf("output dir: %s", absOutputDir)
+	if err := http.ListenAndServe(listenAddr, withCORS(mux)); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func parseComfyURLs() []string {
+	primary := strings.TrimSpace(os.Getenv("COMFY_URL"))
+	all := strings.TrimSpace(os.Getenv("COMFY_URLS"))
+	if all == "" {
+		if primary == "" {
+			primary = "http://127.0.0.1:8188"
+		}
+		return []string{primary}
+	}
+	parts := strings.FieldsFunc(all, func(r rune) bool {
+		return r == ',' || r == ';' || r == '\n' || r == '\r' || r == '\t' || r == ' '
+	})
+	out := make([]string, 0, len(parts)+1)
+	seen := map[string]struct{}{}
+	if primary != "" {
+		normalized := strings.TrimRight(primary, "/")
+		out = append(out, normalized)
+		seen[normalized] = struct{}{}
+	}
+	for _, p := range parts {
+		u := strings.TrimRight(strings.TrimSpace(p), "/")
+		if u == "" {
+			continue
+		}
+		if _, ok := seen[u]; ok {
+			continue
+		}
+		seen[u] = struct{}{}
+		out = append(out, u)
+	}
+	return out
+}
+
+func env(key, fallback string) string {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	return v
+}
+
+func envInt(key string, fallback int) int {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n <= 0 {
+		return fallback
+	}
+	return n
+}

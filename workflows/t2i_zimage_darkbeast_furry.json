@@ -1,0 +1,148 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "{{ckpt_name}}"
+    },
+    "class_type": "CheckpointLoaderSimple"
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "{{clip_name}}",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader"
+  },
+  "3": {
+    "inputs": {
+      "vae_name": "{{vae_name}}"
+    },
+    "class_type": "VAELoader"
+  },
+  "4": {
+    "inputs": {
+      "text": "{{prompt}}",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "5": {
+    "inputs": {
+      "text": "{{negative_prompt}}",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "6": {
+    "inputs": {
+      "width": "{{width}}",
+      "height": "{{height}}",
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage"
+  },
+  "7": {
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift": 1.15
+    },
+    "class_type": "ModelSamplingAuraFlow"
+  },
+  "8": {
+    "inputs": {
+      "seed": "{{seed}}",
+      "steps": "{{steps_stage1}}",
+      "cfg": "{{cfg_stage1}}",
+      "sampler_name": "euler",
+      "scheduler": "simple",
+      "denoise": 1.0,
+      "model": [
+        "7",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "9": {
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "upscale_method": "bicubic",
+      "scale_by": "{{upscale_by}}"
+    },
+    "class_type": "LatentUpscaleBy"
+  },
+  "10": {
+    "inputs": {
+      "seed": "{{seed}}",
+      "steps": "{{steps_stage2}}",
+      "cfg": "{{cfg_stage2}}",
+      "sampler_name": "dpmpp_2m",
+      "scheduler": "simple",
+      "denoise": "{{denoise_stage2}}",
+      "model": [
+        "7",
+        0
+      ],
+      "positive": [
+        "4",
+        0
+      ],
+      "negative": [
+        "5",
+        0
+      ],
+      "latent_image": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "10",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "12": {
+    "inputs": {
+      "filename_prefix": "{{output_prefix}}_furry",
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  }
+}
