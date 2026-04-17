@@ -84,7 +84,19 @@ for target in "${NODE_TARGETS[@]}"; do
   mkdir -p "$target"
   node_dir="$target/$COMFY_NODE_NAME"
   if [[ -d "$node_dir/.git" ]]; then
-    log "[skip] already cloned: $node_dir"
+    log "[skip] already cloned (git): $node_dir"
+  elif [[ -f "$node_dir/__init__.py" ]]; then
+    # Directory exists with source files but no .git — typically the case for
+    # isolated instances, because start_multi_stack.sh's sync_tree() rsyncs the
+    # template's custom_nodes/ with `--exclude .git`. The files are functionally
+    # complete; we just proceed to install deps and link models.
+    log "[skip] already present (non-git, rsync'd from template): $node_dir"
+  elif [[ -d "$node_dir" ]]; then
+    # Directory exists but looks incomplete (no .git and no __init__.py).
+    # Remove and re-clone to guarantee a usable install.
+    log "[reinstall] incomplete directory, removing and re-cloning: $node_dir"
+    rm -rf "$node_dir"
+    git clone --depth 1 "$COMFY_NODE_REPO" "$node_dir"
   else
     log "[clone] $COMFY_NODE_REPO → $node_dir"
     git clone --depth 1 "$COMFY_NODE_REPO" "$node_dir"
