@@ -119,47 +119,31 @@
   },
   "210": {
     "inputs": {
-      "control_net_name": "{{controlnet_name}}"
+      "name": "{{controlnet_name}}"
     },
-    "class_type": "ControlNetLoader"
-  },
-  "211": {
-    "inputs": {
-      "control_net": [
-        "210",
-        0
-      ],
-      "type": "openpose"
-    },
-    "class_type": "SetUnionControlNetType"
+    "class_type": "ModelPatchLoader"
   },
   "230": {
     "inputs": {
-      "positive": [
-        "6",
+      "model": [
+        "72",
         0
       ],
-      "negative": [
-        "7",
+      "model_patch": [
+        "210",
         0
       ],
-      "control_net": [
-        "211",
-        0
+      "vae": [
+        "69",
+        2
       ],
       "image": [
         "220",
         0
       ],
-      "strength": "{{controlnet_strength}}",
-      "start_percent": "{{controlnet_start_percent}}",
-      "end_percent": "{{controlnet_end_percent}}",
-      "vae": [
-        "69",
-        2
-      ]
+      "strength": "{{controlnet_strength}}"
     },
-    "class_type": "ControlNetApplyAdvanced"
+    "class_type": "ZImageFunControlnet"
   },
   "13": {
     "inputs": {
@@ -181,16 +165,16 @@
       "end_at_step": "{{end_at_step_stage1}}",
       "return_with_leftover_noise": "disable",
       "model": [
-        "72",
+        "230",
         0
       ],
       "positive": [
-        "230",
+        "6",
         0
       ],
       "negative": [
-        "230",
-        1
+        "7",
+        0
       ],
       "latent_image": [
         "13",
@@ -225,16 +209,16 @@
         0
       ],
       "model": [
-        "72",
+        "230",
         0
       ],
       "positive": [
-        "230",
+        "6",
         0
       ],
       "negative": [
-        "230",
-        1
+        "7",
+        0
       ],
       "vae": [
         "69",

@@ -39,11 +39,13 @@ defaults:
   lora_name: LovinSnuggly_Positions_LSP.safetensors
   lora_strength_model: 0.4
   lora_strength_clip: 0.35
-  # FLUX ControlNet Union (hard pose constraint)
-  controlnet_name: flux-controlnet-union.safetensors
+  # Z-Image-Turbo-Fun-Controlnet-Union (hard pose constraint)
+  # Loaded via ModelPatchLoader + ZImageFunControlnet (NOT ControlNetLoader).
+  # File must be present in $PROJECT_ROOT/models/model_patches/ and exposed to
+  # ComfyUI through extra_model_paths.yaml's model_patches mapping (added by
+  # scripts/comfy_path_config.py).
+  controlnet_name: Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors
   controlnet_strength: 0.75
-  controlnet_start_percent: 0.0
-  controlnet_end_percent: 0.7
   # ReActor face swap (preserve identity from input_image)
   reactor_enabled: true
   reactor_swap_model: inswapper_128.onnx

@@ -22,7 +22,7 @@ PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
 COMFY_PORTS="${COMFY_PORTS:-8188 8189 8190}"
 
 MODELS_ROOT="$PROJECT_ROOT/models"
-CONTROLNET_FILE="$MODELS_ROOT/controlnet/flux-controlnet-union.safetensors"
+ZIMAGE_CN_FILE="$MODELS_ROOT/model_patches/Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors"
 DWPOSE_YOLOX="$MODELS_ROOT/dwpose/yolox_l.onnx"
 DWPOSE_DWLL="$MODELS_ROOT/dwpose/dw-ll_ucoco_384.onnx"
 REDCRAFT_CKPT="${REDCRAFT_CKPT:-redcraftMar0826LatestZib_redzit15AIO_full_bf16.safetensors}"
@@ -37,7 +37,7 @@ fail() { echo "[fail] $*"; FAIL_COUNT=$((FAIL_COUNT + 1)); }
 # --------------------------------------------------------------------
 echo ""
 echo "=== 1/4 Model files ==="
-for f in "$CONTROLNET_FILE" "$DWPOSE_YOLOX" "$DWPOSE_DWLL"; do
+for f in "$ZIMAGE_CN_FILE" "$DWPOSE_YOLOX" "$DWPOSE_DWLL"; do
   if [[ -s "$f" ]]; then
     pass "$f ($(du -h "$f" | cut -f1))"
   else
@@ -71,7 +71,7 @@ fi
 # --------------------------------------------------------------------
 echo ""
 echo "=== 3/4 Required nodes registered ==="
-REQUIRED_NODES=("DWPreprocessor" "ControlNetLoader" "SetUnionControlNetType" "ControlNetApplyAdvanced")
+REQUIRED_NODES=("DWPreprocessor" "ModelPatchLoader" "ZImageFunControlnet")
 for port in "${HEALTHY_PORTS[@]}"; do
   object_info="$(curl -fsS --max-time 10 "http://127.0.0.1:$port/object_info" || true)"
   if [[ -z "$object_info" ]]; then

@@ -178,9 +178,11 @@ curl -s http://127.0.0.1:8090/api/v1/generate/edit \
 
 这时应升级为硬姿态控制链路（OpenPose/ControlNet），而不是继续无限调词。
 
-## 9. 硬约束姿势链路（ControlNet + DWPose）
+## 9. 硬约束姿势链路（Z-Image ControlNet + DWPose）
 
 当第 8 节的软约束上限到头、或任务本身就需要严格锁定姿势时，使用 `inpaint_zimage_lock_red_pose_cn` 工作流。
+
+> **架构注意**：此链路使用 **阿里 PAI 发布的 Z-Image-Turbo-Fun-Controlnet-Union** 模型（阿里官方发布，Apache 2.0 许可）。我们的基模 `redcraftMar0826LatestZib_redzit15AIO` 是 Lumina2 架构（Z-Image 系列），**与 FLUX ControlNet 不兼容**。早期版本曾尝试用 FLUX.1-dev-Controlnet-Union，会触发 `TypeError: unsupported operand type(s) for *: 'float' and 'NoneType'` —— FLUX 的 guidance distillation 机制在 Lumina2 上不存在。现在切到原生适配 Z-Image 的 ControlNet，通过 ComfyUI 的 `ModelPatchLoader` + `ZImageFunControlnet` 节点应用。
 
 ### 9.1 工作流结构（单次 API 调用内部两段）
 
@@ -191,12 +193,19 @@ Pass A（姿势草图）：
   （骨架图通过 SaveImage(_skeleton) 暴露，调试可取）
 
 Pass B（最终渲染）：
-  [prompt + LSP LoRA] + [骨架 S via FLUX ControlNet Union(openpose)] →
+  [prompt + LSP LoRA] + [骨架 S] →
+  ZImageFunControlnet(model, model_patch, vae, image=骨架, strength) → MODEL_patched →
   KSamplerAdvanced(Stage1) → UltimateSDUpscale(Stage2) →
-  ReActor FaceSwap(input_image 提脸) → FaceDetailer → 最终图
+  ReActor FaceSwap(input_image 提脸) → FaceDetailer(不走 ControlNet) → 最终图
 ```
 
-一次调用、一个 task_id、一条 SSE 进度流。两段共用 CheckpointLoader / LoraLoader / ControlNetLoader，模型加载只发生一次。
+一次调用、一个 task_id、一条 SSE 进度流。两段共用 CheckpointLoader / LoraLoader / ModelPatchLoader，模型加载只发生一次。
+
+**关键差异（对比 FLUX ControlNet）**：
+- Z-Image ControlNet 通过 `ZImageFunControlnet` 节点直接 patch 基模的 noise_refiner + double_block,**不是**通过 conditioning 通道
+- 没有 `type: openpose` 之类的参数 —— Union 模型自己识别控制图模态(pose/canny/depth/等 7 种共用一个网络)
+- 控制图作为 `ZImageFunControlnet` 的可选 `image` 输入直接传入
+- FaceDetailer 阶段**主动跳过 ControlNet**(FaceDetailer 只处理脸部 bbox,不需要全局姿势约束)
 
 ### 9.2 API 调用
 
@@ -257,22 +266,22 @@ curl -X POST http://127.0.0.1:8090/api/v1/tasks \
 
 | 参数 | 默认 | 作用 |
 |------|------|------|
-| `controlnet_name` | `flux-controlnet-union.safetensors` | ControlNet 模型文件 |
-| `controlnet_strength` | `0.75` | 硬约束强度（0 ~ 1） |
-| `controlnet_start_percent` | `0.0` | 开始应用 ControlNet 的步比例 |
-| `controlnet_end_percent` | `0.7` | 停止应用的步比例（过高会过度约束） |
+| `controlnet_name` | `Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors` | 放在 `models/model_patches/` 下的 Z-Image ControlNet |
+| `controlnet_strength` | `0.75` | 硬约束强度（0 ~ 1+） |
 | `pass_a_steps` | `10` | 骨架生成的采样步数（越高越像姿势） |
 | `pass_a_cfg` | `1.6` | Pass A 的 CFG |
 | `dwpose_detect_hand` | `enable` | DWPose 是否识别手部 |
 | `dwpose_detect_face` | `enable` | DWPose 是否识别脸部 |
 | `dwpose_resolution` | `1024` | 骨架图分辨率 |
 
+> 注意:Z-Image ControlNet 没有 `start_percent` / `end_percent` 概念(FLUX ControlNet 才有)。控制强度全程由单一 `strength` 参数统一。
+
 ### 9.5 调参建议
 
 | 症状 | 调整 |
 |------|------|
-| 姿势偶尔漂移（10% 左右跑偏） | `controlnet_strength` 0.75 → 0.85，`end_percent` 0.7 → 0.8 |
-| 画面过于僵硬 / 姿势像"假人" | `controlnet_strength` → 0.55，`end_percent` → 0.5 |
+| 姿势偶尔漂移（10% 左右跑偏） | `controlnet_strength` 0.75 → 0.9 |
+| 画面过于僵硬 / 姿势像"假人" | `controlnet_strength` → 0.55 |
 | 骨架图本身就不对 | 改 `seed`；或提高 `pass_a_cfg` → 1.8、`pass_a_steps` → 14 |
 | 骨架图关节缺失（缺手/缺脚） | 检查 `dwpose_detect_hand/body/face` 是否为 `enable` |
 | 服装被冲刷 | 降 `lora_strength_model/clip` → 0.35/0.30 |
@@ -280,13 +289,13 @@ curl -X POST http://127.0.0.1:8090/api/v1/tasks \
 
 ### 9.6 应急回退
 
-如果 `verify_controlnet.sh` 的兼容性微测试失败，或输出明显崩图，说明 redcraft 底模与 FLUX ControlNet Union 不兼容。最小代价的回退：
+如果 Z-Image ControlNet 在你的用例上效果不好（骨架无法对齐、姿势持续漂移等），有几条回退路径：
 
-1. 复制 `go_gateway/configs/workflows/inpaint_zimage_lock_red_pose_cn.yaml`
-2. 将 `model_name` 改为 `flux1-dev.safetensors`（如果还没有，跑 `scripts/download_all_models.sh`）
-3. 工作流 JSON 无需修改
+1. **拉低 `controlnet_strength` 到 0.3** —— 如果硬约束造成画面崩坏,先做软化
+2. **改 `default_workflows.image_edit` 指回 `inpaint_zimage_lock_red_pose`**(老的软约束工作流) —— 一行 service.yaml 改动,commit 推服务器拉即可
+3. **Pass A 骨架本身不对** —— 提高 `pass_a_cfg` → 2.0 或 `pass_a_steps` → 14,让 LSP LoRA 有更多空间理解文字
 
-代价：放弃 redcraft 的画风，换取 ControlNet 硬约束能力。
+经验:**大多数情况下效果不好都是 Pass A 骨架跑偏了**,而不是 ControlNet 本身的问题。先看 `_skeleton_*.png` 是不是符合预期再说。
 
 ### 9.7 切换为默认
 
