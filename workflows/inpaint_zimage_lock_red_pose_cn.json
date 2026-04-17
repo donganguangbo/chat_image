@@ -92,6 +92,16 @@
     },
     "class_type": "VAEDecode"
   },
+  "219": {
+    "inputs": {
+      "filename_prefix": "{{output_prefix}}_pass_a_raw",
+      "images": [
+        "248",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  },
   "220": {
     "inputs": {
       "image": [
