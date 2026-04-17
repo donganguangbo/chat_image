@@ -71,7 +71,7 @@ fi
 # --------------------------------------------------------------------
 echo ""
 echo "=== 3/4 Required nodes registered ==="
-REQUIRED_NODES=("DWPreprocessor" "ModelPatchLoader" "ZImageFunControlnet")
+REQUIRED_NODES=("ModelPatchLoader" "ZImageFunControlnet")
 for port in "${HEALTHY_PORTS[@]}"; do
   object_info="$(curl -fsS --max-time 10 "http://127.0.0.1:$port/object_info" || true)"
   if [[ -z "$object_info" ]]; then

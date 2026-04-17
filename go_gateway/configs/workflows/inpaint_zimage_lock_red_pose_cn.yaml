@@ -20,13 +20,14 @@ defaults:
   # Canvas size
   width: 832
   height: 1536
-  # Pass A (pose skeleton generation)
+  # Pass A (reference image generation — fed directly to Z-Image ControlNet)
+  # We no longer extract a pose skeleton via DWPose; DWPose has a systematic
+  # blind spot for prone/face-down/rear-view poses (YOLO person detector
+  # returns empty bbox → black skeleton → empty ControlNet constraint).
+  # The Z-Image-Turbo-Fun-Controlnet-Union is trained on 7 control modalities
+  # and accepts raw reference images directly (infers appropriate control mode).
   pass_a_steps: 10
   pass_a_cfg: 1.6
-  dwpose_detect_hand: enable
-  dwpose_detect_body: enable
-  dwpose_detect_face: enable
-  dwpose_resolution: 1024
   # Pass B (final render)
   steps_stage1: 8
   end_at_step_stage1: 7

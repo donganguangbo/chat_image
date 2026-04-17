@@ -102,31 +102,6 @@
     },
     "class_type": "SaveImage"
   },
-  "220": {
-    "inputs": {
-      "image": [
-        "248",
-        0
-      ],
-      "detect_hand": "{{dwpose_detect_hand}}",
-      "detect_body": "{{dwpose_detect_body}}",
-      "detect_face": "{{dwpose_detect_face}}",
-      "resolution": "{{dwpose_resolution}}",
-      "bbox_detector": "yolox_l.onnx",
-      "pose_estimator": "dw-ll_ucoco_384.onnx"
-    },
-    "class_type": "DWPreprocessor"
-  },
-  "221": {
-    "inputs": {
-      "filename_prefix": "{{output_prefix}}_skeleton",
-      "images": [
-        "220",
-        0
-      ]
-    },
-    "class_type": "SaveImage"
-  },
   "210": {
     "inputs": {
       "name": "{{controlnet_name}}"
@@ -148,7 +123,7 @@
         2
       ],
       "image": [
-        "220",
+        "248",
         0
       ],
       "strength": "{{controlnet_strength}}"
