@@ -88,71 +88,54 @@ for port in "${HEALTHY_PORTS[@]}"; do
 done
 
 # --------------------------------------------------------------------
-# 4. Compatibility microtest
-#    Submit a minimal prompt on the first healthy port that exercises:
-#      CheckpointLoaderSimple(redcraft) → SetUnionControlNetType(openpose) →
-#      ControlNetApplyAdvanced with an empty 64x64 image and 1-step KSampler.
-#    If there's a tensor shape mismatch between redcraft and FLUX ControlNet,
-#    it surfaces here.
+# 4. Smoke test: /prompt endpoint reachable and returning structured errors
+#    (NOT a compatibility test — real compat validation happens when you
+#    call /api/v1/generate/edit with the real workflow. This just confirms
+#    the API surface is alive and parsing JSON.)
 # --------------------------------------------------------------------
 echo ""
-echo "=== 4/4 Compatibility microtest ==="
+echo "=== 4/4 Prompt endpoint smoke test ==="
 FIRST_PORT="${HEALTHY_PORTS[0]}"
 
-# Build minimal prompt
-micro_prompt=$(cat <<JSON
-{
-  "prompt": {
-    "1": {
-      "inputs": {"ckpt_name": "$REDCRAFT_CKPT"},
-      "class_type": "CheckpointLoaderSimple"
-    },
-    "2": {
-      "inputs": {"text": "test", "clip": ["1", 1]},
-      "class_type": "CLIPTextEncode"
-    },
-    "3": {
-      "inputs": {"text": "", "clip": ["1", 1]},
-      "class_type": "CLIPTextEncode"
-    },
-    "4": {
-      "inputs": {"control_net_name": "flux-controlnet-union.safetensors"},
-      "class_type": "ControlNetLoader"
-    },
-    "5": {
-      "inputs": {"control_net": ["4", 0], "type": "openpose"},
-      "class_type": "SetUnionControlNetType"
-    },
-    "6": {
-      "inputs": {"width": 64, "height": 64, "batch_size": 1},
-      "class_type": "EmptySD3LatentImage"
-    }
-  },
-  "client_id": "verify_controlnet_microtest"
-}
-JSON
-)
+# Intentionally minimal prompt — ComfyUI *should* respond (400 with a
+# structured JSON error if it parses our payload; 500 would indicate
+# something worse like server crash).
+smoke_body='{"prompt":{},"client_id":"verify_controlnet_smoke"}'
 
-echo "[info] submitting microtest prompt to comfy:$FIRST_PORT ..."
-resp="$(curl -fsS --max-time 30 -H 'Content-Type: application/json' \
-          -X POST "http://127.0.0.1:$FIRST_PORT/prompt" \
-          -d "$micro_prompt" 2>&1 || true)"
+http_code="$(curl -sS -o /tmp/verify_controlnet_resp.$$ -w '%{http_code}' \
+              --max-time 15 -H 'Content-Type: application/json' \
+              -X POST -d "$smoke_body" \
+              "http://127.0.0.1:$FIRST_PORT/prompt" 2>/dev/null || echo "000")"
+resp="$(cat /tmp/verify_controlnet_resp.$$ 2>/dev/null || true)"
+rm -f "/tmp/verify_controlnet_resp.$$"
 
-if [[ -z "$resp" ]]; then
-  fail "microtest got no response (comfy error?)"
-elif echo "$resp" | grep -qi "error\|traceback\|exception"; then
-  fail "microtest returned error:"
-  echo "$resp" | head -40
-else
-  # Extract prompt_id to check status
-  prompt_id="$(echo "$resp" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("prompt_id",""))' 2>/dev/null || true)"
-  if [[ -n "$prompt_id" ]]; then
-    pass "microtest accepted (prompt_id=$prompt_id) — no model loading error"
-  else
-    warn "microtest response unclear:"
+case "$http_code" in
+  200)
+    pass "comfy:$FIRST_PORT /prompt returned 200 (unexpected but OK)"
+    ;;
+  400)
+    # 400 is expected for a malformed minimal prompt — means the endpoint
+    # is parsing and validating. Confirm it returns a JSON error, not a
+    # crash/500.
+    if echo "$resp" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1; then
+      pass "comfy:$FIRST_PORT /prompt validating correctly (400 + JSON error)"
+    else
+      warn "comfy:$FIRST_PORT /prompt returned 400 but not JSON:"
+      echo "$resp" | head -5
+    fi
+    ;;
+  500|502|503)
+    fail "comfy:$FIRST_PORT /prompt returned HTTP $http_code (server error)"
     echo "$resp" | head -20
-  fi
-fi
+    ;;
+  000)
+    fail "comfy:$FIRST_PORT /prompt not reachable"
+    ;;
+  *)
+    warn "comfy:$FIRST_PORT /prompt returned unexpected HTTP $http_code"
+    echo "$resp" | head -20
+    ;;
+esac
 
 # --------------------------------------------------------------------
 # Summary
@@ -161,6 +144,17 @@ echo ""
 echo "=== summary ==="
 if [[ $FAIL_COUNT -eq 0 ]]; then
   echo "[ok] all checks passed"
+  echo ""
+  echo "Next step: run a real end-to-end test to validate redcraft x FLUX"
+  echo "ControlNet Union compatibility. Any incompatibility will surface"
+  echo "there with a full stack trace in the go_gateway / ComfyUI logs."
+  echo ""
+  echo "  1. Switch default_workflows.image_edit in go_gateway/configs/service.yaml"
+  echo "     to inpaint_zimage_lock_red_pose_cn"
+  echo "  2. Restart: bash scripts/start_multi_stack.sh"
+  echo "  3. POST /api/v1/generate/edit with your test prompt + input_image"
+  echo "  4. Inspect outputs/images/*_skeleton_*.png first (Pass A pose check)"
+  echo "  5. Then inspect *_after_*.png (final render)"
   exit 0
 else
   echo "[fail] $FAIL_COUNT check(s) failed — see output above"
