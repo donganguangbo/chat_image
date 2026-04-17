@@ -3,6 +3,6 @@ expose_raw_task_create: false
 
 default_workflows:
   text_to_image: t2i_red_pose
-  image_edit: inpaint_zimage_lock_red_pose
+  image_edit: inpaint_zimage_lock_red_pose_cn
   text_to_video: t2v_default
   image_to_video: i2v_wan_remix_single
