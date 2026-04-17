@@ -18,6 +18,17 @@ logs/
 .run/
 isolated/
 
+# ComfyUI source tree (cloned separately on server, not part of this repo)
+ComfyUI/
+
+# Node modules (if any frontend build system is added later)
+node_modules/
+
+# Backup files
+*.bak
+*.bak.*
+*.orig
+
 # Local tool settings
 .claude/settings.local.json
 
