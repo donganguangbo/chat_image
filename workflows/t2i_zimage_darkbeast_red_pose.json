@@ -9,23 +9,18 @@
     "inputs": {
       "lora_name": "{{red_pose_lora_name}}",
       "strength_model": "{{red_pose_lora_strength_model}}",
-      "strength_clip": "{{red_pose_lora_strength_clip}}",
       "model": [
         "69",
         0
-      ],
-      "clip": [
-        "69",
-        1
       ]
     },
-    "class_type": "LoraLoader"
+    "class_type": "LoraLoaderModelOnly"
   },
   "6": {
     "inputs": {
       "text": "{{prompt}}",
       "clip": [
-        "72",
+        "69",
         1
       ]
     },
@@ -35,7 +30,7 @@
     "inputs": {
       "text": "{{negative_prompt}}",
       "clip": [
-        "72",
+        "69",
         1
       ]
     },

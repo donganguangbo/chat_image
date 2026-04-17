@@ -23,8 +23,9 @@ defaults:
   upscale_by: 2.0
   lora_enabled: true
   lora_name: LovinSnuggly_Positions_LSP.safetensors
-  lora_strength_model: 0.4
-  lora_strength_clip: 0.35
+  lora_model_only: true
+  lora_strength_model: 0.6
+  lora_strength_clip: 0.6
   lora_scope: before_only
   refine_enabled: true
   reactor_enabled: true

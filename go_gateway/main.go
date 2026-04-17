@@ -1741,6 +1741,7 @@ func applyOptionalImageEditLora(prompt map[string]any, params map[string]any, mo
 		return fmt.Errorf("lora base node class_type missing: %s", baseNodeID)
 	}
 
+	modelOnly := getBool(params["lora_model_only"], false)
 	strengthModel := getFloat64(params["lora_strength_model"], 0.8)
 	strengthClip := getFloat64(params["lora_strength_clip"], strengthModel)
 
@@ -1750,18 +1751,32 @@ func applyOptionalImageEditLora(prompt map[string]any, params map[string]any, mo
 	}
 
 	newNodeID := strconv.Itoa(maxNumericNodeID(prompt) + 1)
-	prompt[newNodeID] = map[string]any{
-		"inputs": map[string]any{
-			"model":          []any{baseNodeID, 0},
-			"clip":           []any{baseNodeID, 1},
-			"lora_name":      loraName,
-			"strength_model": strengthModel,
-			"strength_clip":  strengthClip,
-		},
-		"class_type": "LoraLoader",
-		"_meta": map[string]any{
-			"title": "LoraLoader",
-		},
+	if modelOnly {
+		prompt[newNodeID] = map[string]any{
+			"inputs": map[string]any{
+				"model":          []any{baseNodeID, 0},
+				"lora_name":      loraName,
+				"strength_model": strengthModel,
+			},
+			"class_type": "LoraLoaderModelOnly",
+			"_meta": map[string]any{
+				"title": "LoraLoaderModelOnly",
+			},
+		}
+	} else {
+		prompt[newNodeID] = map[string]any{
+			"inputs": map[string]any{
+				"model":          []any{baseNodeID, 0},
+				"clip":           []any{baseNodeID, 1},
+				"lora_name":      loraName,
+				"strength_model": strengthModel,
+				"strength_clip":  strengthClip,
+			},
+			"class_type": "LoraLoader",
+			"_meta": map[string]any{
+				"title": "LoraLoader",
+			},
+		}
 	}
 
 	scope := strings.ToLower(strings.TrimSpace(asString(params["lora_scope"])))
@@ -1775,10 +1790,14 @@ func applyOptionalImageEditLora(prompt map[string]any, params map[string]any, mo
 			"FaceDetailer": {},
 		}
 		relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 0, newNodeID, 0, excludeClass)
-		relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1, excludeClass)
+		if !modelOnly {
+			relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1, excludeClass)
+		}
 	} else {
 		relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 0, newNodeID, 0)
-		relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1)
+		if !modelOnly {
+			relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1)
+		}
 	}
 	return nil
 }
