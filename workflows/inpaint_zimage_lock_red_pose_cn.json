@@ -41,6 +41,26 @@
     },
     "class_type": "CLIPTextEncode"
   },
+  "106": {
+    "inputs": {
+      "text": "{{prompt}}",
+      "clip": [
+        "69",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "107": {
+    "inputs": {
+      "text": "{{negative_prompt}}",
+      "clip": [
+        "69",
+        1
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
   "213": {
     "inputs": {
       "width": "{{width}}",
@@ -61,15 +81,15 @@
       "end_at_step": "{{pass_a_steps}}",
       "return_with_leftover_noise": "disable",
       "model": [
-        "72",
+        "69",
         0
       ],
       "positive": [
-        "6",
+        "106",
         0
       ],
       "negative": [
-        "7",
+        "107",
         0
       ],
       "latent_image": [
