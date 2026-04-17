@@ -7,5 +7,9 @@ bash "${SCRIPT_DIR}/install_model_deps.sh"
 python3 "${SCRIPT_DIR}/download_models.py" --profile all "$@"
 
 echo ""
+echo "Installing ControlNet + DWPose chain..."
+bash "${SCRIPT_DIR}/install_controlnet.sh"
+
+echo ""
 echo "Verifying..."
 python3 "${SCRIPT_DIR}/verify_models.py" --profile all "$@"

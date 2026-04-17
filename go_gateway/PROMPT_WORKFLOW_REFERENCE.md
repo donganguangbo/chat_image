@@ -177,3 +177,124 @@ curl -s http://127.0.0.1:8090/api/v1/generate/edit \
 - LoRA 软约束上限已到
 
 这时应升级为硬姿态控制链路（OpenPose/ControlNet），而不是继续无限调词。
+
+## 9. 硬约束姿势链路（ControlNet + DWPose）
+
+当第 8 节的软约束上限到头、或任务本身就需要严格锁定姿势时，使用 `inpaint_zimage_lock_red_pose_cn` 工作流。
+
+### 9.1 工作流结构（单次 API 调用内部两段）
+
+```
+Pass A（姿势草图）：
+  [prompt + LSP LoRA] → KSamplerAdvanced(10 steps) → VAEDecode →
+  DWPreprocessor → 黑底骨架图 S
+  （骨架图通过 SaveImage(_skeleton) 暴露，调试可取）
+
+Pass B（最终渲染）：
+  [prompt + LSP LoRA] + [骨架 S via FLUX ControlNet Union(openpose)] →
+  KSamplerAdvanced(Stage1) → UltimateSDUpscale(Stage2) →
+  ReActor FaceSwap(input_image 提脸) → FaceDetailer → 最终图
+```
+
+一次调用、一个 task_id、一条 SSE 进度流。两段共用 CheckpointLoader / LoraLoader / ControlNetLoader，模型加载只发生一次。
+
+### 9.2 API 调用
+
+`/api/v1/generate/edit` 接口**不变**，但它通过 `service.yaml` 的 `default_workflows.image_edit` 决定用哪个底层工作流。有两种方式切到 `_cn` 版本测试：
+
+**方式 A：临时切默认（推荐，上线流程一致）**
+
+编辑 `go_gateway/configs/service.yaml`：
+```yaml
+default_workflows:
+  image_edit: inpaint_zimage_lock_red_pose_cn   # 从原 inpaint_zimage_lock_red_pose 改过来
+```
+
+重启 go_gateway，`/api/v1/generate/edit` 就会走硬约束链路：
+```bash
+curl -X POST http://127.0.0.1:8090/api/v1/generate/edit \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "prompt": "按模板 C 写你的提示词（把重点放在姿势几何描述上）",
+    "params": {
+      "input_image": "/path/to/face_reference.png",
+      "seed": 370061708175211,
+      "controlnet_strength": 0.75,
+      "controlnet_end_percent": 0.7
+    }
+  }' | jq
+```
+
+**方式 B：启用 raw task 接口（需要改 service.yaml 另一个开关）**
+
+如果想让旧工作流也继续可用（AB 对比测试场景），临时开启 raw task：
+```yaml
+expose_raw_task_create: true   # 原为 false
+```
+
+重启后可以直接指定 workflow_id：
+```bash
+curl -X POST http://127.0.0.1:8090/api/v1/tasks \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "workflow_id": "inpaint_zimage_lock_red_pose_cn",
+    "prompt": "...",
+    "params": {"input_image": "...", "seed": 370061708175211}
+  }' | jq
+```
+
+测完务必把 `expose_raw_task_create` 关回 `false`（`/api/v1/tasks` 会暴露内部工作流名，不适合长期对外开放）。
+
+### 9.3 输出
+
+响应的 `outputs[]` 会包含多张图：
+- `<prefix>_skeleton_xxx.png`：Pass A 提取的骨架，用来核对姿势是否符合预期
+- `<prefix>_before_xxx.png`：ReActor 换脸前
+- `<prefix>_after_swap_xxx.png`：ReActor 换脸后
+- `<prefix>_after_xxx.png`：FaceDetailer 处理后的最终输出
+
+### 9.4 关键参数
+
+| 参数 | 默认 | 作用 |
+|------|------|------|
+| `controlnet_name` | `flux-controlnet-union.safetensors` | ControlNet 模型文件 |
+| `controlnet_strength` | `0.75` | 硬约束强度（0 ~ 1） |
+| `controlnet_start_percent` | `0.0` | 开始应用 ControlNet 的步比例 |
+| `controlnet_end_percent` | `0.7` | 停止应用的步比例（过高会过度约束） |
+| `pass_a_steps` | `10` | 骨架生成的采样步数（越高越像姿势） |
+| `pass_a_cfg` | `1.6` | Pass A 的 CFG |
+| `dwpose_detect_hand` | `enable` | DWPose 是否识别手部 |
+| `dwpose_detect_face` | `enable` | DWPose 是否识别脸部 |
+| `dwpose_resolution` | `1024` | 骨架图分辨率 |
+
+### 9.5 调参建议
+
+| 症状 | 调整 |
+|------|------|
+| 姿势偶尔漂移（10% 左右跑偏） | `controlnet_strength` 0.75 → 0.85，`end_percent` 0.7 → 0.8 |
+| 画面过于僵硬 / 姿势像"假人" | `controlnet_strength` → 0.55，`end_percent` → 0.5 |
+| 骨架图本身就不对 | 改 `seed`；或提高 `pass_a_cfg` → 1.8、`pass_a_steps` → 14 |
+| 骨架图关节缺失（缺手/缺脚） | 检查 `dwpose_detect_hand/body/face` 是否为 `enable` |
+| 服装被冲刷 | 降 `lora_strength_model/clip` → 0.35/0.30 |
+| 整体崩图 / 色彩异常 | redcraft 与 FLUX ControlNet 可能不兼容，见 9.5 |
+
+### 9.6 应急回退
+
+如果 `verify_controlnet.sh` 的兼容性微测试失败，或输出明显崩图，说明 redcraft 底模与 FLUX ControlNet Union 不兼容。最小代价的回退：
+
+1. 复制 `go_gateway/configs/workflows/inpaint_zimage_lock_red_pose_cn.yaml`
+2. 将 `model_name` 改为 `flux1-dev.safetensors`（如果还没有，跑 `scripts/download_all_models.sh`）
+3. 工作流 JSON 无需修改
+
+代价：放弃 redcraft 的画风，换取 ControlNet 硬约束能力。
+
+### 9.7 切换为默认
+
+当 `_cn` 版本在你的典型 case 下表现稳定后，编辑 `go_gateway/configs/service.yaml`：
+
+```yaml
+default_workflows:
+  image_edit: inpaint_zimage_lock_red_pose_cn   # 原: inpaint_zimage_lock_red_pose
+```
+
+重启 go_gateway 即可。`/api/v1/generate/edit` 对外 API 完全不变，客户端感知不到区别（除了姿势更准了）。
