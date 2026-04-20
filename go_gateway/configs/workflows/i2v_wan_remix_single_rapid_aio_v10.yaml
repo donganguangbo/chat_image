@@ -1,0 +1,18 @@
+id: i2v_wan_remix_single_rapid_aio_v10
+name: Wan Remix I2V Rapid AIO v10 (Single Image)
+template: ../../../workflows/i2v_wan_remix_single_rapid_aio_v10.json
+template_format: api
+mode: i2v
+output_kind: video
+timeout_sec: 2400
+required:
+  - prompt
+  - input_image
+defaults:
+  negative_prompt: "lowres, blurry, out of focus, bad quality, jpeg artifacts, noisy, overexposed, underexposed, flicker, frame jitter, temporal inconsistency, identity drift, face morphing, duplicate face, deformed body, bad anatomy, bad hands, extra fingers, fused fingers, missing fingers, extra limbs, warped arms, text, watermark, logo"
+  seed: -1
+  steps: 8
+  cfg: 1.0
+  duration_sec: 4
+  fps: 8
+  size_long: 832

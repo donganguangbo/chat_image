@@ -1438,7 +1438,7 @@ func defaultServiceConfig() ServiceConfig {
 			TextToImage: "t2i_normal",
 			ImageEdit:   "inpaint_zimage_lock",
 			TextToVideo: "t2v_default",
-			ImageToVideo: "i2v_wan_remix_single",
+			ImageToVideo: "i2v_wan_remix_single_rapid_aio_v10",
 		},
 	}
 }

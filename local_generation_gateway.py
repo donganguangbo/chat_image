@@ -65,8 +65,8 @@ ZIMAGE_INPAINT_WORKFLOW_MAP: dict[str, str] = {
     "furry": "inpaint_zimage_lock_furry.json",
 }
 WAN_REMIX_I2V_WORKFLOW_MAP: dict[str, str] = {
-    "single": "i2v_wan_remix_single.json",
-    "first_last": "i2v_wan_remix_first_last.json",
+    "single": "i2v_wan_remix_single_rapid_aio_v10.json",
+    "first_last": "i2v_wan_remix_first_last_rapid_aio_v10.json",
 }
 DEFAULT_VIDEO_NEGATIVE_PROMPT = (
     "lowres, blurry, out of focus, bad quality, jpeg artifacts, noisy, overexposed, underexposed, "
@@ -1124,10 +1124,7 @@ async def run_workflow_task(task: TaskRecord) -> list[dict[str, Any]]:
     clip_name = str(params.get("clip_name") or "").strip()
     vae_name = str(params.get("vae_name") or "").strip()
     if model_source == "wan_remix":
-        model_name = (
-            "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors + "
-            "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors"
-        )
+        model_name = "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors"
         clip_name = "umt5_xxl_fp16.safetensors"
         vae_name = "wan_2.1_vae.safetensors"
     params["seed"] = normalize_seed(params.get("seed", -1))
@@ -1142,8 +1139,8 @@ async def run_workflow_task(task: TaskRecord) -> list[dict[str, Any]]:
     params["ckpt_name"] = model_name
     params["unet_name"] = model_name
     if model_source == "wan_remix":
-        params["unet_name_stage1"] = "Wan2.2_Remix_NSFW_i2v_14b_high_lighting_v2.0.safetensors"
-        params["unet_name_stage2"] = "Wan2.2_Remix_NSFW_i2v_14b_low_lighting_v2.0.safetensors"
+        params["unet_name_stage1"] = "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors"
+        params["unet_name_stage2"] = "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors"
     try:
         fps_value = int(params.get("fps", 16))
     except Exception:

@@ -1,0 +1,438 @@
+{
+  "483": {
+    "inputs": {
+      "sage_attention": "auto",
+      "model": [
+        "499",
+        0
+      ],
+      "allow_compile": false
+    },
+    "class_type": "PathchSageAttentionKJ"
+  },
+  "484": {
+    "inputs": {
+      "sage_attention": "auto",
+      "model": [
+        "557",
+        0
+      ],
+      "allow_compile": false
+    },
+    "class_type": "PathchSageAttentionKJ"
+  },
+  "485": {
+    "inputs": {
+      "text": "{{negative_prompt}}",
+      "clip": [
+        "497",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "489": {
+    "inputs": {
+      "enable_fp16_accumulation": true,
+      "model": [
+        "484",
+        0
+      ]
+    },
+    "class_type": "ModelPatchTorchSettings"
+  },
+  "490": {
+    "inputs": {
+      "enable_fp16_accumulation": true,
+      "model": [
+        "483",
+        0
+      ]
+    },
+    "class_type": "ModelPatchTorchSettings"
+  },
+  "497": {
+    "inputs": {
+      "clip_name": "umt5_xxl_fp16.safetensors",
+      "type": "wan",
+      "device": "cpu"
+    },
+    "class_type": "CLIPLoader"
+  },
+  "499": {
+    "inputs": {
+      "model": [
+        "560",
+        0
+      ]
+    },
+    "class_type": "wanBlockSwap"
+  },
+  "506": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "489",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3"
+  },
+  "516": {
+    "inputs": {
+      "shift": 5.000000000000001,
+      "model": [
+        "490",
+        0
+      ]
+    },
+    "class_type": "ModelSamplingSD3"
+  },
+  "522": {
+    "inputs": {
+      "samples": [
+        "548",
+        0
+      ],
+      "vae": [
+        "541",
+        0
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "524": {
+    "inputs": {
+      "value": "{{steps}}"
+    },
+    "class_type": "INTConstant"
+  },
+  "525": {
+    "inputs": {
+      "value": 2
+    },
+    "class_type": "INTConstant"
+  },
+  "531": {
+    "inputs": {
+      "width": [
+        "553",
+        1
+      ],
+      "height": [
+        "553",
+        2
+      ],
+      "length": [
+        "543",
+        0
+      ],
+      "batch_size": 1,
+      "positive": [
+        "545",
+        0
+      ],
+      "negative": [
+        "485",
+        0
+      ],
+      "vae": [
+        "541",
+        0
+      ],
+      "start_image": [
+        "553",
+        0
+      ],
+      "end_image": [
+        "555",
+        0
+      ]
+    },
+    "class_type": "WanFirstLastFrameToVideo"
+  },
+  "541": {
+    "inputs": {
+      "vae_name": "wan_2.1_vae.safetensors"
+    },
+    "class_type": "VAELoader"
+  },
+  "542": {
+    "inputs": {
+      "value": "{{size_long}}",
+      "Number": "{{size_long}}"
+    },
+    "class_type": "Int"
+  },
+  "543": {
+    "inputs": {
+      "value": "{{length_frames}}",
+      "Number": "{{length_frames}}"
+    },
+    "class_type": "Int"
+  },
+  "545": {
+    "inputs": {
+      "text": "{{prompt}}",
+      "clip": [
+        "497",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "547": {
+    "inputs": {
+      "add_noise": "enable",
+      "noise_seed": "{{seed}}",
+      "steps": [
+        "524",
+        0
+      ],
+      "cfg": "{{cfg}}",
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "start_at_step": 0,
+      "end_at_step": [
+        "525",
+        0
+      ],
+      "return_with_leftover_noise": "enable",
+      "model": [
+        "506",
+        0
+      ],
+      "positive": [
+        "531",
+        0
+      ],
+      "negative": [
+        "531",
+        1
+      ],
+      "latent_image": [
+        "531",
+        2
+      ]
+    },
+    "class_type": "KSamplerAdvanced"
+  },
+  "548": {
+    "inputs": {
+      "add_noise": "disable",
+      "noise_seed": "{{seed}}",
+      "steps": [
+        "524",
+        0
+      ],
+      "cfg": "{{cfg}}",
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "start_at_step": [
+        "525",
+        0
+      ],
+      "end_at_step": 10000,
+      "return_with_leftover_noise": "disable",
+      "model": [
+        "516",
+        0
+      ],
+      "positive": [
+        "531",
+        0
+      ],
+      "negative": [
+        "531",
+        1
+      ],
+      "latent_image": [
+        "547",
+        0
+      ]
+    },
+    "class_type": "KSamplerAdvanced"
+  },
+  "551": {
+    "inputs": {
+      "aspect_ratio": "original",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "crop",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": [
+        "542",
+        0
+      ],
+      "background_color": "#000000",
+      "image": [
+        "558",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2"
+  },
+  "552": {
+    "inputs": {
+      "aspect_ratio": "original",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "crop",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": [
+        "542",
+        0
+      ],
+      "background_color": "#000000",
+      "image": [
+        "559",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2"
+  },
+  "553": {
+    "inputs": {
+      "width": [
+        "551",
+        3
+      ],
+      "height": [
+        "551",
+        4
+      ],
+      "upscale_method": "lanczos",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 32,
+      "device": "cpu",
+      "image": [
+        "551",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2"
+  },
+  "555": {
+    "inputs": {
+      "width": [
+        "552",
+        3
+      ],
+      "height": [
+        "552",
+        4
+      ],
+      "upscale_method": "lanczos",
+      "keep_proportion": "crop",
+      "pad_color": "0, 0, 0",
+      "crop_position": "center",
+      "divisible_by": 32,
+      "device": "cpu",
+      "image": [
+        "552",
+        0
+      ]
+    },
+    "class_type": "ImageResizeKJv2"
+  },
+  "557": {
+    "inputs": {
+      "model": [
+        "561",
+        0
+      ]
+    },
+    "class_type": "wanBlockSwap"
+  },
+  "558": {
+    "inputs": {
+      "image": "{{input_image}}",
+      "upload": "image"
+    },
+    "class_type": "ImageLoader"
+  },
+  "559": {
+    "inputs": {
+      "image": "{{input_image_end}}",
+      "upload": "image"
+    },
+    "class_type": "ImageLoader"
+  },
+  "560": {
+    "inputs": {
+      "unet_name": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader"
+  },
+  "561": {
+    "inputs": {
+      "unet_name": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
+      "weight_dtype": "fp8_e4m3fn"
+    },
+    "class_type": "UNETLoader"
+  },
+  "574": {
+    "inputs": {
+      "frame_rate": [
+        "652",
+        0
+      ],
+      "loop_count": 0,
+      "filename_prefix": "{{output_prefix}}",
+      "format": "video/h264-mp4",
+      "pingpong": false,
+      "save_output": true,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "images": [
+        "577",
+        0
+      ],
+      "pix_fmt": "yuv420p",
+      "crf": 15
+    },
+    "class_type": "VHS_VideoCombine"
+  },
+  "577": {
+    "inputs": {
+      "ckpt_name": "rife47.pth",
+      "clear_cache_after_n_frames": 8,
+      "multiplier": 2,
+      "fast_mode": true,
+      "ensemble": true,
+      "scale_factor": 1,
+      "frames": [
+        "662",
+        0
+      ],
+      "dtype": "float32",
+      "torch_compile": false,
+      "batch_size": 1
+    },
+    "class_type": "RIFE VFI"
+  },
+  "652": {
+    "inputs": {
+      "value": "{{fps_x2}}"
+    },
+    "class_type": "easy float"
+  },
+  "662": {
+    "inputs": {
+      "purge_cache": true,
+      "purge_models": true,
+      "anything": [
+        "522",
+        0
+      ]
+    },
+    "class_type": "LayerUtility: PurgeVRAM V2"
+  }
+}
