@@ -2607,7 +2607,7 @@ async def enqueue_i2v_wan_remix(
     height: int = Form(480),
     duration_sec: int = Form(4, ge=1, le=60),
     fps: int = Form(16),
-    steps: int = Form(6),
+    steps: int = Form(8),
     cfg: float = Form(1.0),
     seed: int = Form(-1),
     image: UploadFile = File(...),

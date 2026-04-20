@@ -465,7 +465,7 @@ async function submitI2VRemix(event) {
   fd.append("height", String(toInt(form.height.value, 480)));
   fd.append("duration_sec", String(toInt(form.duration_sec.value, 4)));
   fd.append("fps", String(toInt(form.fps.value, 16)));
-  fd.append("steps", String(toInt(form.steps.value, 6)));
+  fd.append("steps", String(toInt(form.steps.value, 8)));
   fd.append("cfg", String(toFloat(form.cfg.value, 1.0)));
   fd.append("seed", String(toInt(form.seed.value, -1)));
   fd.append("image", image, image.name);
