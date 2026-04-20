@@ -344,7 +344,7 @@
   "557": {
     "inputs": {
       "model": [
-        "561",
+        "560",
         0
       ]
     },
@@ -368,13 +368,6 @@
     "inputs": {
       "unet_name": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
       "weight_dtype": "default"
-    },
-    "class_type": "UNETLoader"
-  },
-  "561": {
-    "inputs": {
-      "unet_name": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
     },
     "class_type": "UNETLoader"
   },

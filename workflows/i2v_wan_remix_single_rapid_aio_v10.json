@@ -138,13 +138,6 @@
     },
     "class_type": "ImageResizeKJv2"
   },
-  "279": {
-    "inputs": {
-      "unet_name": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
-      "weight_dtype": "fp8_e4m3fn"
-    },
-    "class_type": "UNETLoader"
-  },
   "280": {
     "inputs": {
       "unet_name": "wan2.2-i2v-rapid-aio-v10-nsfw.safetensors",
@@ -170,7 +163,7 @@
   "283": {
     "inputs": {
       "model": [
-        "279",
+        "280",
         0
       ]
     },
