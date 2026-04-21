@@ -32,7 +32,7 @@
 1. **Mode gate 排除 i2v** — line 499 不进入挂载逻辑
 2. **单 LoRA 槽位** — 多姿势场景需同时挂 2~5 个(后入 + 口交 + 传教士 + 女上 等)
 3. **WAN 2.2 双 stage UNET 未处理**
-   - `workflows/i2v_wan_remix_single_rapid_aio_v10.json` 节点 `279` = stage1 UNET,节点 `280` = stage2 UNET
+   - `workflows/i2v_wan_remix_single.json` 节点 `279` = stage1 UNET,节点 `280` = stage2 UNET
    - WAN 2.2 社区 LoRA 常成对发布(`-high.safetensors` → stage1,`-low.safetensors` → stage2)
    - 现有单槽机制只能挂一个 base node,无法同时覆盖双 stage
 
@@ -101,7 +101,7 @@ if cfg.Mode == "image_edit" || cfg.Mode == "t2i" || cfg.Mode == "i2v" {
 
 在 i2v workflow 配置里加元数据,告诉 Gateway 哪两个节点是 stage1 / stage2 UNET 源。
 
-文件:`configs/workflows/i2v_wan_remix_single.yaml` 和 `i2v_wan_remix_single_rapid_aio_v10.yaml`
+文件:`configs/workflows/i2v_wan_remix_single.yaml`
 
 ```yaml
 defaults:
@@ -112,8 +112,6 @@ defaults:
     stage1: "279"   # high-noise UNETLoader 节点 ID
     stage2: "280"   # low-noise UNETLoader 节点 ID
 ```
-
-对 `i2v_wan_remix_single_rapid_aio_v10` 两个 UNET 都指向同一个 AIO 文件,但节点 ID 仍然分开,LoRA 挂载逻辑不变。
 
 对 `image_edit` / `t2i` 保持现有 `lora_base_node_id` 单字段(不需要 stage 概念)。
 
@@ -261,8 +259,7 @@ Content-Type: application/json
 
 - `go_gateway/main.go`:`applyOptionalImageEditLora` (line 1715),调用点 line 499
 - `go_gateway/configs/workflows/i2v_wan_remix_single.yaml`:需加 `lora_stage_node_ids`
-- `go_gateway/configs/workflows/i2v_wan_remix_single_rapid_aio_v10.yaml`:同上
-- `workflows/i2v_wan_remix_single*.json`:UNETLoader 节点 `279` / `280`(不改 JSON,只在 YAML 声明)
+- `workflows/i2v_wan_remix_single.json`:UNETLoader 节点 `279` / `280`(不改 JSON,只在 YAML 声明)
 
 ---
 
