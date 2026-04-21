@@ -292,6 +292,7 @@ nohup env LISTEN_ADDR=":${GO_PORT}" \
   OUTPUT_DIR="$PROJECT_ROOT/outputs" \
   COMFY_URLS="$GO_COMFY_URLS" \
   GO_WORKERS="$GO_WORKERS" \
+  GO_GATEWAY_I2V_TRIM_HEAD_SEC="${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}" \
   bash -lc "cd \"$PROJECT_ROOT/go_gateway\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
 echo $! > "$RUN_DIR/go_gateway.pid"
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {
