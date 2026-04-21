@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"math/rand"
 	"mime"
 	"mime/multipart"
@@ -466,20 +467,27 @@ func (s *Server) executeTask(taskID string) {
 		}
 	}
 	if cfg.Mode == "i2v" {
-		// i2v head-trim workaround: the first ~1s of i2v output tends to
+		// i2v head-trim workaround: the first ~Ns of i2v output tends to
 		// contain morphing artifacts (e.g., anatomy growing in for coupled
 		// scenes that require a second person absent from the single-frame
-		// reference). We generate `user_duration + trim_head_sec` seconds
-		// then let the workflow's ImageFromBatch node drop the first
-		// `trim_head_sec * fps_x2` frames.
-		trimHeadSec := envInt("GO_GATEWAY_I2V_TRIM_HEAD_SEC", 0)
+		// reference). We generate extra frames up front, then let the
+		// workflow's ImageFromBatch node drop the first N seconds.
+		// GO_GATEWAY_I2V_TRIM_HEAD_SEC accepts fractional seconds (e.g. 1.5).
+		trimHeadSec := envFloat("GO_GATEWAY_I2V_TRIM_HEAD_SEC", 0)
 		userDuration := getInt(params["duration_sec"], 0)
 		fps := getInt(params["fps"], 0)
 		if userDuration > 0 && fps > 0 {
-			if trimHeadSec > 0 {
-				params["duration_sec"] = userDuration + trimHeadSec
+			trimHeadFramesPreVFI := int(math.Round(trimHeadSec * float64(fps)))
+			if trimHeadFramesPreVFI < 0 {
+				trimHeadFramesPreVFI = 0
 			}
-			params["output_trim_head_frames"] = trimHeadSec * fps * 2
+			if trimHeadFramesPreVFI > 0 {
+				// Set length_frames directly so generation includes the
+				// extra frames; the generic calculator below skips when
+				// length_frames is already present.
+				params["length_frames"] = userDuration*fps + trimHeadFramesPreVFI
+			}
+			params["output_trim_head_frames"] = trimHeadFramesPreVFI * 2
 			params["output_final_frames"] = userDuration * fps * 2
 		}
 	}
@@ -2807,4 +2815,16 @@ func envInt(key string, fallback int) int {
 		return fallback
 	}
 	return n
+}
+
+func envFloat(key string, fallback float64) float64 {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return fallback
+	}
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil || f < 0 {
+		return fallback
+	}
+	return f
 }
