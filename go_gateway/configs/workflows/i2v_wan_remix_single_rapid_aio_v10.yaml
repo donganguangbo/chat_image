@@ -16,3 +16,8 @@ defaults:
   duration_sec: 4
   fps: 8
   size_long: 832
+  # AIO workflow merges high+low into a single UNETLoader (node 280).
+  # Both stages point at the same node so stage1/stage2/both all chain onto it.
+  lora_stage_node_ids:
+    stage1: "280"
+    stage2: "280"

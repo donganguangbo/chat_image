@@ -16,3 +16,6 @@ defaults:
   duration_sec: 4
   fps: 8
   size_long: 832
+  lora_stage_node_ids:
+    stage1: "279"   # high-noise UNETLoader
+    stage2: "280"   # low-noise UNETLoader
