@@ -465,6 +465,24 @@ func (s *Server) executeTask(taskID string) {
 			}
 		}
 	}
+	if cfg.Mode == "i2v" {
+		// i2v head-trim workaround: the first ~1s of i2v output tends to
+		// contain morphing artifacts (e.g., anatomy growing in for coupled
+		// scenes that require a second person absent from the single-frame
+		// reference). We generate `user_duration + trim_head_sec` seconds
+		// then let the workflow's ImageFromBatch node drop the first
+		// `trim_head_sec * fps_x2` frames.
+		trimHeadSec := envInt("GO_GATEWAY_I2V_TRIM_HEAD_SEC", 0)
+		userDuration := getInt(params["duration_sec"], 0)
+		fps := getInt(params["fps"], 0)
+		if userDuration > 0 && fps > 0 {
+			if trimHeadSec > 0 {
+				params["duration_sec"] = userDuration + trimHeadSec
+			}
+			params["output_trim_head_frames"] = trimHeadSec * fps * 2
+			params["output_final_frames"] = userDuration * fps * 2
+		}
+	}
 	if _, ok := params["length_frames"]; !ok {
 		durationSec := getInt(params["duration_sec"], 0)
 		fps := getInt(params["fps"], 0)

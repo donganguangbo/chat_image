@@ -292,13 +292,24 @@
       "save_metadata": true,
       "trim_to_audio": false,
       "images": [
-        "308",
+        "399",
         0
       ],
       "pix_fmt": "yuv420p",
       "crf": 15
     },
     "class_type": "VHS_VideoCombine"
+  },
+  "399": {
+    "inputs": {
+      "image": [
+        "308",
+        0
+      ],
+      "batch_index": "{{output_trim_head_frames}}",
+      "length": "{{output_final_frames}}"
+    },
+    "class_type": "ImageFromBatch"
   },
   "308": {
     "inputs": {
