@@ -729,7 +729,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 		}
 		nodeID = strings.TrimSpace(nodeID)
 		for key, kind := range map[string]string{"images": "image", "videos": "video", "gifs": "video"} {
-			if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) > 0 {
+			if isAfterImageOutputMode(cfg.Mode) && kind == "image" && len(afterNodeSet) > 0 {
 				if _, ok := afterNodeSet[nodeID]; !ok {
 					continue
 				}
@@ -746,7 +746,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				if filename == "" {
 					continue
 				}
-				if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) == 0 {
+				if isAfterImageOutputMode(cfg.Mode) && kind == "image" && len(afterNodeSet) == 0 {
 					marker := strings.ToLower(filename + " " + subfolder)
 					isAfter := strings.Contains(marker, "_after") &&
 						!strings.Contains(marker, "_after_swap") &&
@@ -796,7 +796,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 	}
 
 	if len(out) == 0 {
-		if cfg.Mode == "image_edit" {
+		if isAfterImageOutputMode(cfg.Mode) {
 			if len(afterNodeSet) > 0 {
 				ids := make([]string, 0, len(afterNodeSet))
 				for id := range afterNodeSet {
@@ -820,6 +820,15 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 		return nil, fmt.Errorf("no output files produced for workflow=%s", cfg.ID)
 	}
 	return out, nil
+}
+
+func isAfterImageOutputMode(mode string) bool {
+	switch strings.TrimSpace(mode) {
+	case "image_edit", "image_preframe":
+		return true
+	default:
+		return false
+	}
 }
 
 func summarizeOutputNodes(outputsAny map[string]any) string {
@@ -1299,18 +1308,79 @@ func (s *Server) handleGenerate(category string) http.HandlerFunc {
 	}
 }
 
+func (s *Server) handleGenerateWorkflow(workflowID string) http.HandlerFunc {
+	fixedWorkflowID := strings.TrimSpace(workflowID)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if fixedWorkflowID == "" {
+			http.Error(w, "workflow not configured", http.StatusBadRequest)
+			return
+		}
+
+		var req CategoryGenerateRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "invalid JSON body", http.StatusBadRequest)
+			return
+		}
+
+		params := cloneMap(req.Params)
+		if img := strings.TrimSpace(req.InputImage); img != "" {
+			params["input_image"] = img
+		}
+		if imgURL := strings.TrimSpace(req.InputImageURL); imgURL != "" {
+			params["input_image_url"] = imgURL
+		}
+		if imgB64 := strings.TrimSpace(req.InputImageBase64); imgB64 != "" {
+			params["input_image_base64"] = imgB64
+		}
+		if imgEnd := strings.TrimSpace(req.InputImageEnd); imgEnd != "" {
+			params["input_image_end"] = imgEnd
+		}
+		if imgEndURL := strings.TrimSpace(req.InputImageEndURL); imgEndURL != "" {
+			params["input_image_end_url"] = imgEndURL
+		}
+		if imgEndB64 := strings.TrimSpace(req.InputImageEndBase64); imgEndB64 != "" {
+			params["input_image_end_base64"] = imgEndB64
+		}
+
+		createReq := CreateTaskRequest{
+			WorkflowID:     fixedWorkflowID,
+			Prompt:         strings.TrimSpace(req.Prompt),
+			NegativePrompt: strings.TrimSpace(req.NegativePrompt),
+			Width:          req.Width,
+			Height:         req.Height,
+			Params:         params,
+		}
+		if createReq.Prompt == "" {
+			http.Error(w, "prompt is required", http.StatusBadRequest)
+			return
+		}
+
+		task, err := s.createTask(createReq)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, task)
+	}
+}
+
 func (s *Server) handleGenerateCategories(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"categories": []string{"t2i", "edit", "t2v", "i2v"},
+		"categories": []string{"t2i", "edit", "red_edit_preframe", "t2v", "i2v"},
 		"endpoints": map[string]string{
-			"t2i":  "/api/v1/generate/t2i",
-			"edit": "/api/v1/generate/edit",
-			"t2v":  "/api/v1/generate/t2v",
-			"i2v":  "/api/v1/generate/i2v",
+			"t2i":               "/api/v1/generate/t2i",
+			"edit":              "/api/v1/generate/edit",
+			"red_edit_preframe": "/api/v1/generate/red-edit-preframe",
+			"t2v":               "/api/v1/generate/t2v",
+			"i2v":               "/api/v1/generate/i2v",
 		},
 	})
 }
@@ -2743,6 +2813,7 @@ func main() {
 	mux.HandleFunc("/api/v1/generate/categories", srv.handleGenerateCategories)
 	mux.HandleFunc("/api/v1/generate/t2i", srv.handleGenerate("t2i"))
 	mux.HandleFunc("/api/v1/generate/edit", srv.handleGenerate("edit"))
+	mux.HandleFunc("/api/v1/generate/red-edit-preframe", srv.handleGenerateWorkflow("red_edit_preframe"))
 	mux.HandleFunc("/api/v1/generate/t2v", srv.handleGenerate("t2v"))
 	mux.HandleFunc("/api/v1/generate/i2v", srv.handleGenerate("i2v"))
 	mux.HandleFunc("/api/v1/workflows", srv.handleWorkflows)

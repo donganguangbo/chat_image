@@ -1,0 +1,218 @@
+{
+  "26": {
+    "inputs": {
+      "guidance": "{{guidance}}",
+      "conditioning": [
+        "114",
+        0
+      ]
+    },
+    "class_type": "FluxGuidance"
+  },
+  "38": {
+    "inputs": {
+      "positive": [
+        "26",
+        0
+      ],
+      "negative": [
+        "476",
+        0
+      ],
+      "vae": [
+        "486",
+        0
+      ],
+      "pixels": [
+        "609",
+        0
+      ],
+      "mask": [
+        "609",
+        1
+      ],
+      "noise_mask": true
+    },
+    "class_type": "InpaintModelConditioning"
+  },
+  "114": {
+    "inputs": {
+      "text": "A diptych with two side-by-side images of the same scene. On the right, the scene is exactly the same as on the left but {{prompt}}",
+      "clip": [
+        "227",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode"
+  },
+  "227": {
+    "inputs": {
+      "clip_name1": "{{clip_l_name}}",
+      "clip_name2": "{{t5_name}}",
+      "type": "flux",
+      "device": "default"
+    },
+    "class_type": "DualCLIPLoader"
+  },
+  "282": {
+    "inputs": {
+      "value": "{{size_long}}"
+    },
+    "class_type": "INTConstant"
+  },
+  "329": {
+    "inputs": {
+      "unet_name": "{{model_name}}",
+      "weight_dtype": "{{weight_dtype}}"
+    },
+    "class_type": "UNETLoader"
+  },
+  "476": {
+    "inputs": {
+      "conditioning": [
+        "26",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut"
+  },
+  "486": {
+    "inputs": {
+      "vae_name": "{{vae_name}}"
+    },
+    "class_type": "VAELoader"
+  },
+  "578": {
+    "inputs": {
+      "aspect_ratio": "original",
+      "proportional_width": 1,
+      "proportional_height": 1,
+      "fit": "crop",
+      "method": "lanczos",
+      "round_to_multiple": "16",
+      "scale_to_side": "longest",
+      "scale_to_length": [
+        "282",
+        0
+      ],
+      "image": [
+        "584",
+        0
+      ],
+      "background_color": "#000000"
+    },
+    "class_type": "LayerUtility: ImageScaleByAspectRatio V2"
+  },
+  "584": {
+    "inputs": {
+      "image": "{{input_image}}",
+      "upload": "image"
+    },
+    "class_type": "LoadImage"
+  },
+  "600": {
+    "inputs": {
+      "samples": [
+        "602",
+        0
+      ],
+      "vae": [
+        "486",
+        0
+      ]
+    },
+    "class_type": "VAEDecode"
+  },
+  "601": {
+    "inputs": {
+      "filename_prefix": "{{output_prefix}}_after",
+      "images": [
+        "610",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  },
+  "602": {
+    "inputs": {
+      "seed": "{{seed}}",
+      "steps": "{{steps}}",
+      "cfg": "{{cfg}}",
+      "sampler_name": "{{sampler_name}}",
+      "scheduler": "{{scheduler}}",
+      "denoise": "{{denoise}}",
+      "model": [
+        "329",
+        0
+      ],
+      "positive": [
+        "38",
+        0
+      ],
+      "negative": [
+        "38",
+        1
+      ],
+      "latent_image": [
+        "38",
+        2
+      ]
+    },
+    "class_type": "KSampler"
+  },
+  "609": {
+    "inputs": {
+      "direction": "left-right",
+      "pixels": 0,
+      "method": "auto",
+      "image_1": [
+        "578",
+        0
+      ],
+      "image_2": [
+        "578",
+        0
+      ],
+      "mask_1": [
+        "584",
+        1
+      ]
+    },
+    "class_type": "easy makeImageForICLora"
+  },
+  "610": {
+    "inputs": {
+      "width": [
+        "609",
+        3
+      ],
+      "height": [
+        "609",
+        4
+      ],
+      "x": [
+        "609",
+        5
+      ],
+      "y": [
+        "609",
+        6
+      ],
+      "image": [
+        "600",
+        0
+      ]
+    },
+    "class_type": "ImageCrop"
+  },
+  "611": {
+    "inputs": {
+      "filename_prefix": "{{output_prefix}}_preview",
+      "images": [
+        "600",
+        0
+      ]
+    },
+    "class_type": "SaveImage"
+  }
+}

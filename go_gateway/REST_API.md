@@ -1,6 +1,6 @@
 # Go Gateway RESTful 接入文档（黑盒模式）
 
-本文档面向外部调用方。默认不暴露工作流细节，只暴露四个业务类别接口。
+本文档面向外部调用方。默认不暴露工作流细节，只暴露业务类别接口和少量专用编排入口。
 
 ## 1. 服务地址
 
@@ -21,10 +21,11 @@ curl -s http://127.0.0.1:8090/healthz
 curl -s http://127.0.0.1:8090/api/v1/generate/categories | jq
 ```
 
-## 2.2 创建任务（四选一）
+## 2.2 创建任务
 
 - `POST /api/v1/generate/t2i` 文生图
 - `POST /api/v1/generate/edit` 编辑图（锁定生图）
+- `POST /api/v1/generate/red-edit-preframe` RED-Edit 首帧预成图
 - `POST /api/v1/generate/t2v` 文生视频
 - `POST /api/v1/generate/i2v` 图生视频
 
@@ -84,6 +85,17 @@ curl -s http://127.0.0.1:8090/api/v1/generate/categories | jq
 - `params.detail_bbox_model`：直接指定检测器模型名（如 `bbox/pussyV2.pt` 或 `pussyV2.pt`）
   - 若同时传单个和多个参数，会合并去重后按顺序执行（`detail_targets` / `detail_target` 在前）
   - 检测器越多，速度会越慢
+
+RED-Edit 首帧预成图（`/api/v1/generate/red-edit-preframe`）用于先把单张参考图改成可喂给 I2V 的首帧，建议客户端随后把该任务输出图作为 `/api/v1/generate/i2v` 的 `input_image`。该接口不改变默认图生视频工作流。
+
+常用参数：
+
+- `input_image` / `input_image_url` / `input_image_base64`：必填其一
+- `prompt`：编辑指令，会自动包装为 ICEdit diptych 指令
+- `params.size_long`：编辑前最长边，默认 `1024`
+- `params.steps`：默认 `15`
+- `params.cfg`：默认 `1.0`
+- `params.guidance`：默认 `50`
 
 返回：`201 Created`
 
