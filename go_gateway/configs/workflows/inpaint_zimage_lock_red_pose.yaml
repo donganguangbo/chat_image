@@ -21,7 +21,7 @@ defaults:
   cfg_stage2: 1.1
   denoise_stage2: 0.16
   upscale_by: 2.0
-  lora_enabled: true
+  lora_enabled: false
   lora_name: LovinSnuggly_Positions_LSP.safetensors
   lora_model_only: true
   lora_strength_model: 0.3
