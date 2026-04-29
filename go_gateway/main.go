@@ -398,6 +398,13 @@ func (s *Server) executeTask(taskID string) {
 	if task == nil {
 		return
 	}
+	// If the task was cancelled while sitting in the queue, skip it. Status is
+	// only mutated under s.mu, so reading the snapshot here is safe enough as a
+	// fast-path; the authoritative check happens inside the updateTask call
+	// below where we transition queued→running atomically.
+	if task.Status != "queued" {
+		return
+	}
 	comfy := s.comfyPool.Next()
 	if comfy == nil {
 		s.failTask(taskID, errors.New("no comfy backend available"))
@@ -409,12 +416,22 @@ func (s *Server) executeTask(taskID string) {
 		return
 	}
 
+	// Atomic CAS: only transition queued→running. If the task was cancelled
+	// after the snapshot above (i.e. between getTask and here), don't claim it.
+	taken := false
 	s.updateTask(taskID, func(t *Task) {
+		if t.Status != "queued" {
+			return
+		}
 		t.Status = "running"
 		t.Progress = 3
 		t.Message = "loading workflow"
 		t.Backend = comfy.BaseURL
+		taken = true
 	})
+	if !taken {
+		return
+	}
 
 	tplRaw, err := os.ReadFile(cfg.TemplatePath)
 	if err != nil {
@@ -1125,6 +1142,50 @@ func (s *Server) failTask(id string, err error) {
 	})
 }
 
+// cancelTask attempts to cancel a task. The returned status is the task's
+// status AFTER the cancel attempt:
+//   - "cancelled": queued task we successfully cancelled (caller should refund)
+//   - "running":   task is currently using the GPU; cannot cancel (caller surfaces 409)
+//   - "completed": work already finished, nothing to cancel
+//   - "failed":    task already failed, nothing to cancel
+// If the task is unknown, returns "" with an error.
+func (s *Server) cancelTask(id string) (string, error) {
+	var (
+		status string
+		subs   []chan string
+		snap   *Task
+	)
+	s.mu.Lock()
+	t, ok := s.tasks[id]
+	if !ok {
+		s.mu.Unlock()
+		return "", fmt.Errorf("task not found")
+	}
+	switch t.Status {
+	case "queued":
+		t.Status = "cancelled"
+		t.Progress = 100
+		t.Message = "cancelled by user"
+		t.UpdatedAt = time.Now().UTC()
+		status = "cancelled"
+		snap = cloneTask(t)
+		subs = make([]chan string, 0, len(t.subscribers))
+		for ch := range t.subscribers {
+			subs = append(subs, ch)
+		}
+	case "running":
+		status = "running"
+	default:
+		// completed / failed / cancelled — terminal states, return as-is
+		status = t.Status
+	}
+	s.mu.Unlock()
+	if snap != nil {
+		s.emitTo(snap, subs)
+	}
+	return status, nil
+}
+
 func (s *Server) emit(task *Task) {
 	s.mu.RLock()
 	t, ok := s.tasks[task.ID]
@@ -1327,6 +1388,10 @@ func (s *Server) handleTaskByID(w http.ResponseWriter, r *http.Request) {
 		s.handleTaskStream(w, r, id)
 		return
 	}
+	if len(parts) == 2 && parts[1] == "cancel" {
+		s.handleTaskCancel(w, r, id)
+		return
+	}
 	if len(parts) != 1 {
 		http.NotFound(w, r)
 		return
@@ -1341,6 +1406,30 @@ func (s *Server) handleTaskByID(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, task)
+}
+
+func (s *Server) handleTaskCancel(w http.ResponseWriter, r *http.Request, id string) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	status, err := s.cancelTask(id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	// 409 Conflict tells the caller "task is currently running, GPU in use,
+	// cannot dequeue". The caller (chat-web) maps this to a user-facing
+	// "video is generating, please wait" error. Other terminal states return
+	// 200 with the actual status so the caller can decide whether to refund.
+	statusCode := http.StatusOK
+	if status == "running" {
+		statusCode = http.StatusConflict
+	}
+	writeJSON(w, statusCode, map[string]any{
+		"id":     id,
+		"status": status,
+	})
 }
 
 func (s *Server) handleTaskStream(w http.ResponseWriter, r *http.Request, id string) {
