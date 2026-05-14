@@ -1157,7 +1157,22 @@ async def run_workflow_task(task: TaskRecord) -> list[dict[str, Any]]:
         duration_sec = 4
     duration_sec = max(1, min(60, duration_sec))
     params["duration_sec"] = duration_sec
-    params["length_frames"] = max(2, duration_sec * fps_value + 1)
+    if task.task_type == "i2v" and model_source == "wan_remix":
+        trim_head_sec = clamp_float(
+            params.get(
+                "trim_head_sec",
+                os.getenv("I2V_TRIM_HEAD_SEC") or os.getenv("GO_GATEWAY_I2V_TRIM_HEAD_SEC") or 0,
+            ),
+            0.0,
+            60.0,
+            0.0,
+        )
+        trim_head_frames = max(0, int(round(trim_head_sec * fps_value)))
+        params["length_frames"] = max(2, duration_sec * fps_value + trim_head_frames)
+        params["output_trim_head_frames"] = trim_head_frames * 2
+        params["output_final_frames"] = max(1, duration_sec * fps_value * 2)
+    else:
+        params["length_frames"] = max(2, duration_sec * fps_value + 1)
     try:
         width_value = int(params.get("width", 832))
     except Exception:

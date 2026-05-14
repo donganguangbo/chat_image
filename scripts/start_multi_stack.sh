@@ -193,6 +193,7 @@ GO_WORKERS="${GO_WORKERS:-${#comfy_ports[@]}}"
 if [[ -z "$GO_WORKERS" ]] || ! [[ "$GO_WORKERS" =~ ^[0-9]+$ ]] || (( GO_WORKERS < 1 )); then
   GO_WORKERS=1
 fi
+I2V_TRIM_HEAD_SEC="${I2V_TRIM_HEAD_SEC:-${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}}"
 
 echo "[1/7] stopping old processes..."
 kill_by_pattern "[p]ython.*local_generation_gateway.py"
@@ -278,6 +279,7 @@ done
 echo "[6/7] starting web gateway (single comfy)..."
 web_log="$LOG_DIR/web_${timestamp}.log"
 nohup env HOST="$HOST" PORT="$WEB_PORT" COMFY_URL="$WEB_COMFY_URL" \
+  I2V_TRIM_HEAD_SEC="$I2V_TRIM_HEAD_SEC" \
   "$PYTHON_BIN" -u "$PROJECT_ROOT/local_generation_gateway.py" >"$web_log" 2>&1 &
 echo $! > "$RUN_DIR/web.pid"
 wait_http_ok "http://127.0.0.1:${WEB_PORT}/healthz" "$WEB_WAIT_SEC" "web" || {
@@ -292,7 +294,7 @@ nohup env LISTEN_ADDR=":${GO_PORT}" \
   OUTPUT_DIR="$PROJECT_ROOT/outputs" \
   COMFY_URLS="$GO_COMFY_URLS" \
   GO_WORKERS="$GO_WORKERS" \
-  GO_GATEWAY_I2V_TRIM_HEAD_SEC="${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}" \
+  GO_GATEWAY_I2V_TRIM_HEAD_SEC="$I2V_TRIM_HEAD_SEC" \
   bash -lc "cd \"$PROJECT_ROOT/go_gateway\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
 echo $! > "$RUN_DIR/go_gateway.pid"
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {
