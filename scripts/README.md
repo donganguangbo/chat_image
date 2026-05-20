@@ -43,7 +43,7 @@ Or one-shot Z-Image:
 bash /Volumes/kk/work/openclaw/chat_image/scripts/download_z_image_models.sh --comfy-root /path/to/ComfyUI
 ```
 
-Or pull curated Z-Image type assets (normal/futa/furry workflows + related models):
+Or pull curated Z-Image type assets (normal workflows + related models):
 
 ```bash
 CIVITAI_TOKEN=your_civitai_token \

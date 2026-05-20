@@ -172,13 +172,12 @@ function bindZImageTypePresetProfile() {
     const currentType = String(typeSel.value);
     const isRed = currentType === "red";
     const redChain = String(redChainSel?.value || "main");
-    const isFurry = currentType === "furry";
-    const isFuta = currentType === "futa";
+    const isSimpleHybrid = currentType === "simple_hybrid";
     if (redChainWrap) {
       redChainWrap.classList.toggle("hidden", !isRed);
     }
     if (loraStrengthRow) {
-      loraStrengthRow.classList.toggle("hidden", isRed || isFurry || isFuta);
+      loraStrengthRow.classList.toggle("hidden", isRed || isSimpleHybrid);
     }
 
     const genericProfile = {
@@ -220,35 +219,26 @@ function bindZImageTypePresetProfile() {
       lora_strength_aux: 1.25,
       lora_strength_main: -1.5,
     };
-    const furryProfile = {
-      preset: "1024x1024",
-      width: 1024,
-      height: 1024,
+    const simpleHybridProfile = {
+      preset: "768x1440",
+      width: 768,
+      height: 1440,
       steps_stage1: 8,
-      cfg_stage1: 1.25,
-      steps_stage2: 22,
-      cfg_stage2: 1.55,
-      denoise_stage2: 0.5,
-      upscale_by: 1.4,
-      lora_strength_aux: 1.25,
-      lora_strength_main: -1.5,
-    };
-    const futaProfile = {
-      preset: "1024x1024",
-      width: 1024,
-      height: 1024,
-      steps_stage1: 7,
-      cfg_stage1: 1.2,
-      steps_stage2: 20,
-      cfg_stage2: 1.45,
-      denoise_stage2: 0.55,
-      upscale_by: 1.35,
+      cfg_stage1: 1.0,
+      steps_stage2: 8,
+      cfg_stage2: 1.0,
+      denoise_stage2: 0.75,
+      upscale_by: 1.25,
       lora_strength_aux: 1.25,
       lora_strength_main: -1.5,
     };
 
     const redProfile = redChain === "pose" ? redPoseProfile : redMainProfile;
-    const profile = isRed ? redProfile : isFurry ? furryProfile : isFuta ? futaProfile : genericProfile;
+    const profile = isRed
+      ? redProfile
+      : isSimpleHybrid
+        ? simpleHybridProfile
+        : genericProfile;
     setPreset(profile.preset);
     setNum("width", profile.width);
     setNum("height", profile.height);

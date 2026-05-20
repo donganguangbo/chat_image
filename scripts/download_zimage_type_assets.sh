@@ -161,30 +161,16 @@ if [[ "${SKIP_WORKFLOWS}" -eq 0 ]]; then
 
     # Curated workflow packs (with pinned version IDs)
     WF_NORMAL_T2I_URL="https://civitai.com/api/download/models/2786477"
-    WF_FUTA_T2I_URL="https://civitai.com/api/download/models/2758560"
-    WF_FURRY_T2I_URL="https://civitai.com/api/download/models/2820672"
     WF_LOCK_URL="https://civitai.com/api/download/models/2786372"
 
     WF_NORMAL_T2I_ZIP="${WORKFLOW_RAW_DIR}/normal_t2i_moody_zib_zit_v4.zip"
-    WF_FUTA_T2I_ZIP="${WORKFLOW_RAW_DIR}/futa_t2i_extreme_aesthetics_v1.zip"
-    WF_FURRY_T2I_ZIP="${WORKFLOW_RAW_DIR}/furry_t2i_turbo_essentials_v4.zip"
     WF_NORMAL_LOCK_ZIP="${WORKFLOW_RAW_DIR}/normal_lock_character_head_swap_v1.zip"
-    WF_FUTA_LOCK_ZIP="${WORKFLOW_RAW_DIR}/futa_lock_character_head_swap_v1.zip"
-    WF_FURRY_LOCK_ZIP="${WORKFLOW_RAW_DIR}/furry_lock_character_head_swap_v1.zip"
 
     download_file "${WF_NORMAL_T2I_URL}" "${WF_NORMAL_T2I_ZIP}"
-    download_file "${WF_FUTA_T2I_URL}" "${WF_FUTA_T2I_ZIP}"
-    download_file "${WF_FURRY_T2I_URL}" "${WF_FURRY_T2I_ZIP}"
     download_file "${WF_LOCK_URL}" "${WF_NORMAL_LOCK_ZIP}"
-    cp -f "${WF_NORMAL_LOCK_ZIP}" "${WF_FUTA_LOCK_ZIP}"
-    cp -f "${WF_NORMAL_LOCK_ZIP}" "${WF_FURRY_LOCK_ZIP}"
 
     extract_zip "${WF_NORMAL_T2I_ZIP}" "normal_t2i"
-    extract_zip "${WF_FUTA_T2I_ZIP}" "futa_t2i"
-    extract_zip "${WF_FURRY_T2I_ZIP}" "furry_t2i"
     extract_zip "${WF_NORMAL_LOCK_ZIP}" "normal_lock"
-    extract_zip "${WF_FUTA_LOCK_ZIP}" "futa_lock"
-    extract_zip "${WF_FURRY_LOCK_ZIP}" "furry_lock"
   else
     echo ""
     echo "== Skip community workflow archives (default) =="
@@ -201,17 +187,6 @@ if [[ "${SKIP_MODELS}" -eq 0 ]]; then
   HF_AE_URL="https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors"
   download_file "${HF_QWEN_URL}" "${MODELS_ROOT}/text_encoders/qwen_3_4b.safetensors"
   download_file "${HF_AE_URL}" "${MODELS_ROOT}/vae/ae.safetensors"
-
-  # Type-specific checkpoints / loras
-  FUTA_CKPT_URL="https://civitai.com/api/download/models/2642303"
-  FURRY_CKPT_URL="https://civitai.com/api/download/models/2535848"
-  FURRY_LORA_1_URL="https://civitai.com/api/download/models/2566602"
-  FURRY_LORA_2_URL="https://civitai.com/api/download/models/2479919"
-
-  download_file "${FUTA_CKPT_URL}" "${MODELS_ROOT}/checkpoints/zimageTurboNSFWBy_2602NSFWFP8.safetensors"
-  download_file "${FURRY_CKPT_URL}" "${MODELS_ROOT}/checkpoints/ratatoskr_zimage_v1_bf16.safetensors"
-  download_file "${FURRY_LORA_1_URL}" "${MODELS_ROOT}/loras/willysZITAnthro_Experimental_v0.1.safetensors"
-  download_file "${FURRY_LORA_2_URL}" "${MODELS_ROOT}/loras/BoerBara.safetensors"
 
   if [[ "${SKIP_CORE}" -eq 0 ]]; then
     echo ""
@@ -241,25 +216,13 @@ echo "== Prepare ready-to-use workflow files =="
 
 # Gateway-compatible runtime workflows.
 copy_if_exists "${PROJECT_WORKFLOWS_DIR}/t2i_zimage_darkbeast.json" "${WORKFLOW_READY_DIR}/t2i_zimage_darkbeast.json"
-copy_if_exists "${PROJECT_WORKFLOWS_DIR}/t2i_zimage_darkbeast_futa.json" "${WORKFLOW_READY_DIR}/t2i_zimage_darkbeast_futa.json"
-copy_if_exists "${PROJECT_WORKFLOWS_DIR}/t2i_zimage_darkbeast_furry.json" "${WORKFLOW_READY_DIR}/t2i_zimage_darkbeast_furry.json"
 copy_if_exists "${PROJECT_WORKFLOWS_DIR}/inpaint_zimage_lock.json" "${WORKFLOW_READY_DIR}/inpaint_zimage_lock.json"
-copy_if_exists "${PROJECT_WORKFLOWS_DIR}/inpaint_zimage_lock_futa.json" "${WORKFLOW_READY_DIR}/inpaint_zimage_lock_futa.json"
-copy_if_exists "${PROJECT_WORKFLOWS_DIR}/inpaint_zimage_lock_furry.json" "${WORKFLOW_READY_DIR}/inpaint_zimage_lock_furry.json"
 
 # Keep one extracted community workflow json per type for reference.
 if [[ "${COMMUNITY_WORKFLOWS}" -eq 1 ]]; then
   if [[ -d "${WORKFLOW_EXTRACT_DIR}/normal_t2i" ]]; then
     src="$(pick_first_json "${WORKFLOW_EXTRACT_DIR}/normal_t2i" || true)"
     [[ -n "${src:-}" ]] && copy_if_exists "${src}" "${WORKFLOW_READY_DIR}/community_normal_t2i.json"
-  fi
-  if [[ -d "${WORKFLOW_EXTRACT_DIR}/futa_t2i" ]]; then
-    src="$(pick_first_json "${WORKFLOW_EXTRACT_DIR}/futa_t2i" || true)"
-    [[ -n "${src:-}" ]] && copy_if_exists "${src}" "${WORKFLOW_READY_DIR}/community_futa_t2i.json"
-  fi
-  if [[ -d "${WORKFLOW_EXTRACT_DIR}/furry_t2i" ]]; then
-    src="$(pick_first_json "${WORKFLOW_EXTRACT_DIR}/furry_t2i" || true)"
-    [[ -n "${src:-}" ]] && copy_if_exists "${src}" "${WORKFLOW_READY_DIR}/community_furry_t2i.json"
   fi
   if [[ -d "${WORKFLOW_EXTRACT_DIR}/normal_lock" ]]; then
     src="$(pick_first_json "${WORKFLOW_EXTRACT_DIR}/normal_lock" || true)"

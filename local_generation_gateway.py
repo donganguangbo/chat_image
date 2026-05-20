@@ -48,21 +48,18 @@ IMAGE_OUTPUT_FORMAT = (os.getenv("IMAGE_OUTPUT_FORMAT", "image/avif") or "image/
 
 TaskType = Literal["t2i", "inpaint", "t2v", "i2v"]
 TaskStatus = Literal["queued", "running", "completed", "failed"]
-ZImageType = Literal["normal", "red", "futa", "furry"]
+ZImageType = Literal["normal", "red", "simple_hybrid"]
 RedChainType = Literal["main", "side", "pose"]
 WanRemixChainType = Literal["single", "first_last"]
 
 ZIMAGE_T2I_WORKFLOW_MAP: dict[str, str] = {
     "normal": "t2i_zimage_darkbeast.json",
     "red": "t2i_zimage_darkbeast_red.json",
-    "futa": "t2i_zimage_darkbeast_futa.json",
-    "furry": "t2i_zimage_darkbeast_furry.json",
+    "simple_hybrid": "t2i_zimage_darkbeast_simple_hybrid.json",
 }
 ZIMAGE_INPAINT_WORKFLOW_MAP: dict[str, str] = {
     "normal": "inpaint_zimage_lock.json",
     "red": "inpaint_zimage_lock_red.json",
-    "futa": "inpaint_zimage_lock_futa.json",
-    "furry": "inpaint_zimage_lock_furry.json",
 }
 WAN_REMIX_I2V_WORKFLOW_MAP: dict[str, str] = {
     "single": "i2v_wan_remix_single.json",
@@ -122,12 +119,10 @@ def parse_bool(value: Any, default: bool = False) -> bool:
 
 def normalize_zimage_type(value: Any) -> ZImageType:
     text = str(value or "").strip().lower()
+    if text in {"simple_hybrid", "simple-hybrid", "darkbeast6", "dbz6", "blitz6", "简易"}:
+        return "simple_hybrid"
     if text in {"red", "redcraft", "redzit", "红潮"}:
         return "red"
-    if text in {"futa", "futanari", "扶她"}:
-        return "futa"
-    if text in {"furry", "anthro", "兽人"}:
-        return "furry"
     return "normal"
 
 
@@ -1636,7 +1631,18 @@ def auto_configure_t2i_zimage_darkbeast_bundle(params: dict[str, Any]) -> None:
             )
 
     model_name = ""
-    if zimage_type == "red":
+    if zimage_type == "simple_hybrid":
+        model_name = select_path_from_candidates(
+            diffusion_paths,
+            ["DarkBeastZ6-BlitZ-F32-ComfyUI.safetensors"],
+            [["darkbeast", "z6", "blitz", "f32"], ["darkbeast", "z6", "blitz"], ["darkbeast", "z6"]],
+        )
+        if not model_name:
+            raise RuntimeError(
+                "DarkBeast6 简易混合缺少模型，请放到 models/diffusion_models: "
+                "DarkBeastZ6-BlitZ-F32-ComfyUI.safetensors"
+            )
+    elif zimage_type == "red":
         source_paths = checkpoint_paths if uses_checkpoint_loader else all_model_paths
         model_name = select_path_from_candidates(
             source_paths,
@@ -1708,34 +1714,6 @@ def auto_configure_t2i_zimage_darkbeast_bundle(params: dict[str, Any]) -> None:
             params["red_pose_lora_name"] = red_pose_lora_name
             params["red_pose_lora_strength_model"] = red_pose_lora_strength_model
             params["red_pose_lora_strength_clip"] = red_pose_lora_strength_clip
-    elif zimage_type == "furry":
-        source_paths = checkpoint_paths if uses_checkpoint_loader else all_model_paths
-        model_name = select_path_from_candidates(
-            source_paths,
-            ["ratatoskrAnimalCreature_zImageVersionV10WIP.safetensors", "ratatoskr_zimage_v1_bf16.safetensors"],
-            [["ratatoskr", "zimage"], ["ratatoskr"]],
-        )
-        if not model_name:
-            raise RuntimeError(
-                "兽人类型缺少 Ratatoskr 模型，请放到 models/checkpoints: "
-                "ratatoskrAnimalCreature_zImageVersionV10WIP.safetensors"
-            )
-    elif zimage_type == "futa":
-        source_paths = checkpoint_paths if uses_checkpoint_loader else all_model_paths
-        model_name = select_path_from_candidates(
-            source_paths,
-            [
-                "zimageTurboNSFWBy_2602NSFWFP8.safetensors",
-                "zimageTurboNSFWBy_2602NSFWBF16.safetensors",
-                "zimageTurboNSFWBy_2601Fp8.safetensors",
-            ],
-            [["zimage", "nsfw", "2602", "fp8"], ["zimage", "nsfw", "2602"], ["zimage", "nsfw"]],
-        )
-        if not model_name:
-            raise RuntimeError(
-                "扶她类型缺少 Zimage Turbo NSFW 模型，请放到 models/checkpoints: "
-                "zimageTurboNSFWBy_2602NSFWFP8.safetensors"
-            )
     else:
         if uses_checkpoint_loader:
             model_name = select_path_from_candidates(
@@ -1743,10 +1721,8 @@ def auto_configure_t2i_zimage_darkbeast_bundle(params: dict[str, Any]) -> None:
                 [
                     str(params.get("model_name") or "").strip(),
                     "redcraftMar0826LatestZib_redzit15AIO_full_bf16.safetensors",
-                    "zimageTurboNSFWBy_2602NSFWFP8.safetensors",
-                    "ratatoskr_zimage_v1_bf16.safetensors",
                 ],
-                [["redcraft"], ["zimage", "nsfw"], ["ratatoskr"]],
+                [["redcraft"]],
             )
             if not model_name and checkpoint_paths:
                 model_name = checkpoint_paths[0]
@@ -1804,6 +1780,28 @@ def auto_configure_t2i_zimage_darkbeast_bundle(params: dict[str, Any]) -> None:
         else:
             params["vae_name"] = ""
             params["vae_from_checkpoint"] = True
+    elif zimage_type == "simple_hybrid":
+        clip_name = select_path_from_candidates(
+            text_encoder_paths,
+            ["zImageTurbo_textEncoder.safetensors"],
+            [["zimage", "turbo", "textencoder"], ["zimage", "text", "encoder"], ["zimage", "turbo"]],
+        )
+        if not clip_name:
+            raise RuntimeError(
+                "DarkBeast6 简易混合缺少文本编码器，请放到 models/text_encoders: "
+                "zImageTurbo_textEncoder.safetensors"
+            )
+        vae_name = select_path_from_candidates(
+            vae_paths,
+            ["ae.safetensors"],
+            [["ae"]],
+        )
+        if not vae_name:
+            raise RuntimeError("DarkBeast6 简易混合缺少 VAE: ae.safetensors (请放到 models/vae)")
+        params["clip_name"] = clip_name
+        params["vae_name"] = vae_name
+        params["clip_from_checkpoint"] = False
+        params["vae_from_checkpoint"] = False
     else:
         params["clip_name"] = "qwen_3_4b.safetensors"
         params["vae_name"] = "ae.safetensors"
