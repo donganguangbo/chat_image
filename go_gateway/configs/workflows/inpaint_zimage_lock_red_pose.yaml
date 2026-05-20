@@ -27,7 +27,7 @@ defaults:
   lora_strength_model: 0.3
   lora_strength_clip: 0.3
   lora_scope: before_only
-  refine_enabled: false
+  refine_enabled: true
   reactor_enabled: true
   reactor_swap_model: inswapper_128.onnx
   reactor_facedetection: retinaface_resnet50
