@@ -74,29 +74,6 @@
     },
     "class_type": "KSampler"
   },
-  "25": {
-    "inputs": {
-      "samples": [
-        "9",
-        0
-      ],
-      "vae": [
-        "4",
-        0
-      ]
-    },
-    "class_type": "VAEDecode"
-  },
-  "12": {
-    "inputs": {
-      "filename_prefix": "{{output_prefix}}_dbz6_1st",
-      "images": [
-        "25",
-        0
-      ]
-    },
-    "class_type": "SaveImage"
-  },
   "78": {
     "inputs": {
       "samples": [
@@ -150,7 +127,7 @@
   },
   "79": {
     "inputs": {
-      "filename_prefix": "{{output_prefix}}_dbz6_2nd",
+      "filename_prefix": "{{output_prefix}}_dbz6_final",
       "images": [
         "77",
         0

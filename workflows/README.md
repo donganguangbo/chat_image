@@ -43,7 +43,7 @@ Common variables:
 - `t2i_zimage_darkbeast_red.json`: `red` type Z-Image main workflow.
 - `t2i_zimage_darkbeast_red_side.json`: `red` type side-chain workflow (ModelOnly LoRA branch).
 - `t2i_zimage_darkbeast_red_pose.json`: `red` type pose-priority workflow (LSP LoRA on model+clip).
-- `t2i_zimage_darkbeast_simple_hybrid.json`: DarkBeast6 simple hybrid two-stage workflow.
+- `t2i_zimage_darkbeast_simple_hybrid.json`: DarkBeast6 simple hybrid two-stage workflow with only the final pass saved.
 - `inpaint_zimage_lock.json`: `normal` type Z-Image lock-generate workflow (DarkBeast ZiT two-stage + ReActor + FaceDetailer).
 - `inpaint_zimage_lock_red.json`: `red` type Z-Image lock-generate workflow (preswap branch aligned to `t2i_zimage_darkbeast_red.json` main chain + ReActor + FaceDetailer).
 - `t2v.json`: placeholder file, replace with your exported Wan/other T2V workflow.
