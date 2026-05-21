@@ -47,15 +47,17 @@ go run .
 curl -s http://127.0.0.1:8090/api/v1/generate/categories | jq
 ```
 
-固定四类：
+固定类别接口：
 
 - `POST /api/v1/generate/t2i`（文生图）
+- `POST /api/v1/generate/t2i-darkbeast6`（DarkBeast6 简易混合文生图）
 - `POST /api/v1/generate/edit`（编辑图，对应锁定生图）
 - `POST /api/v1/generate/t2v`（文生视频）
 - `POST /api/v1/generate/i2v`（图生视频）
 
-说明：四个类别到底落到哪个具体 workflow，由 `configs/service.yaml` 的
-`default_workflows` 决定。
+说明：`t2i` / `edit` / `t2v` / `i2v` 到底落到哪个具体 workflow，由
+`configs/service.yaml` 的 `default_workflows` 决定。`t2i-darkbeast6`
+固定使用 `t2i_darkbeast6_simple_hybrid`，不受默认映射影响。
 
 ### 创建任务示例（文生图）
 
@@ -77,6 +79,24 @@ curl -s http://127.0.0.1:8090/api/v1/generate/t2i \
 ```
 
 返回里有 `id`（任务 ID）。
+
+### 创建任务示例（DarkBeast6 简易混合文生图）
+
+```bash
+curl -s http://127.0.0.1:8090/api/v1/generate/t2i-darkbeast6 \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "prompt": "masterpiece, cinematic portrait, ultra detailed",
+    "width": 768,
+    "height": 1440,
+    "params": {
+      "seed": -1
+    }
+  }' | jq
+```
+
+默认参数：`steps_stage1=5`、`steps_stage2=15`、`cfg_stage1=1.0`、
+`cfg_stage2=1.0`、`denoise_stage2=0.75`、`upscale_by=1.25`。
 
 ### 创建任务示例（图生视频）
 

@@ -27,17 +27,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const darkBeast6T2IWorkflowID = "t2i_darkbeast6_simple_hybrid"
+
 type WorkflowConfig struct {
-	ID         string         `yaml:"id"`
-	Name       string         `yaml:"name"`
-	Template   string         `yaml:"template"`
-	TemplateFormat string     `yaml:"template_format"`
-	Mode       string         `yaml:"mode"`
-	OutputKind string         `yaml:"output_kind"`
-	Defaults   map[string]any `yaml:"defaults"`
-	Required   []string       `yaml:"required"`
-	Bindings   []InputBinding `yaml:"bindings"`
-	TimeoutSec int            `yaml:"timeout_sec"`
+	ID             string         `yaml:"id"`
+	Name           string         `yaml:"name"`
+	Template       string         `yaml:"template"`
+	TemplateFormat string         `yaml:"template_format"`
+	Mode           string         `yaml:"mode"`
+	OutputKind     string         `yaml:"output_kind"`
+	Defaults       map[string]any `yaml:"defaults"`
+	Required       []string       `yaml:"required"`
+	Bindings       []InputBinding `yaml:"bindings"`
+	TimeoutSec     int            `yaml:"timeout_sec"`
 
 	ConfigFile   string `yaml:"-"`
 	TemplatePath string `yaml:"-"`
@@ -50,15 +52,15 @@ type InputBinding struct {
 }
 
 type CategoryWorkflowConfig struct {
-	TextToImage string `yaml:"text_to_image"`
-	ImageEdit   string `yaml:"image_edit"`
-	TextToVideo string `yaml:"text_to_video"`
+	TextToImage  string `yaml:"text_to_image"`
+	ImageEdit    string `yaml:"image_edit"`
+	TextToVideo  string `yaml:"text_to_video"`
 	ImageToVideo string `yaml:"image_to_video"`
 }
 
 type ServiceConfig struct {
-	ExposeWorkflowCatalog bool                  `yaml:"expose_workflow_catalog"`
-	ExposeRawTaskCreate   bool                  `yaml:"expose_raw_task_create"`
+	ExposeWorkflowCatalog bool                   `yaml:"expose_workflow_catalog"`
+	ExposeRawTaskCreate   bool                   `yaml:"expose_raw_task_create"`
 	DefaultWorkflows      CategoryWorkflowConfig `yaml:"default_workflows"`
 }
 
@@ -72,17 +74,17 @@ type CreateTaskRequest struct {
 }
 
 type CategoryGenerateRequest struct {
-	Prompt         string         `json:"prompt"`
-	NegativePrompt string         `json:"negative_prompt"`
-	Width          int            `json:"width"`
-	Height         int            `json:"height"`
-	InputImage     string         `json:"input_image"`
-	InputImageURL  string         `json:"input_image_url"`
-	InputImageBase64 string       `json:"input_image_base64"`
-	InputImageEnd  string         `json:"input_image_end"`
-	InputImageEndURL string       `json:"input_image_end_url"`
-	InputImageEndBase64 string    `json:"input_image_end_base64"`
-	Params         map[string]any `json:"params"`
+	Prompt              string         `json:"prompt"`
+	NegativePrompt      string         `json:"negative_prompt"`
+	Width               int            `json:"width"`
+	Height              int            `json:"height"`
+	InputImage          string         `json:"input_image"`
+	InputImageURL       string         `json:"input_image_url"`
+	InputImageBase64    string         `json:"input_image_base64"`
+	InputImageEnd       string         `json:"input_image_end"`
+	InputImageEndURL    string         `json:"input_image_end_url"`
+	InputImageEndBase64 string         `json:"input_image_end_base64"`
+	Params              map[string]any `json:"params"`
 }
 
 type TaskOutput struct {
@@ -137,7 +139,7 @@ var imageEditDetailTargetModels = map[string]string{
 func NewComfyClient(baseURL string) *ComfyClient {
 	return &ComfyClient{
 		BaseURL: strings.TrimRight(baseURL, "/"),
-		HTTP: &http.Client{Timeout: 120 * time.Second},
+		HTTP:    &http.Client{Timeout: 120 * time.Second},
 	}
 }
 
@@ -362,10 +364,10 @@ type Server struct {
 	tasks     map[string]*Task
 	queue     chan string
 
-	comfyPool    *ComfyPool
-	service      ServiceConfig
-	workerCount  int
-	outputDir string
+	comfyPool   *ComfyPool
+	service     ServiceConfig
+	workerCount int
+	outputDir   string
 }
 
 func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, service ServiceConfig, workerCount int, outputDir string) *Server {
@@ -373,13 +375,13 @@ func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, servic
 		workerCount = 1
 	}
 	s := &Server{
-		workflows: workflows,
-		tasks:     map[string]*Task{},
-		queue:     make(chan string, 256),
-		comfyPool: comfyPool,
-		service:   service,
+		workflows:   workflows,
+		tasks:       map[string]*Task{},
+		queue:       make(chan string, 256),
+		comfyPool:   comfyPool,
+		service:     service,
 		workerCount: workerCount,
-		outputDir: outputDir,
+		outputDir:   outputDir,
 	}
 	for i := 0; i < workerCount; i++ {
 		go s.workerLoop(i + 1)
@@ -1148,6 +1150,7 @@ func (s *Server) failTask(id string, err error) {
 //   - "running":   task is currently using the GPU; cannot cancel (caller surfaces 409)
 //   - "completed": work already finished, nothing to cancel
 //   - "failed":    task already failed, nothing to cancel
+//
 // If the task is unknown, returns "" with an error.
 func (s *Server) cancelTask(id string) (string, error) {
 	var (
@@ -1289,6 +1292,8 @@ func (s *Server) workflowForCategory(category string) string {
 	switch category {
 	case "t2i":
 		return strings.TrimSpace(s.service.DefaultWorkflows.TextToImage)
+	case "t2i-darkbeast6":
+		return darkBeast6T2IWorkflowID
 	case "edit":
 		return strings.TrimSpace(s.service.DefaultWorkflows.ImageEdit)
 	case "t2v":
@@ -1318,25 +1323,25 @@ func (s *Server) handleGenerate(category string) http.HandlerFunc {
 			return
 		}
 
-			params := cloneMap(req.Params)
-			if img := strings.TrimSpace(req.InputImage); img != "" {
-				params["input_image"] = img
-			}
-			if imgURL := strings.TrimSpace(req.InputImageURL); imgURL != "" {
-				params["input_image_url"] = imgURL
-			}
-			if imgB64 := strings.TrimSpace(req.InputImageBase64); imgB64 != "" {
-				params["input_image_base64"] = imgB64
-			}
-			if imgEnd := strings.TrimSpace(req.InputImageEnd); imgEnd != "" {
-				params["input_image_end"] = imgEnd
-			}
-			if imgEndURL := strings.TrimSpace(req.InputImageEndURL); imgEndURL != "" {
-				params["input_image_end_url"] = imgEndURL
-			}
-			if imgEndB64 := strings.TrimSpace(req.InputImageEndBase64); imgEndB64 != "" {
-				params["input_image_end_base64"] = imgEndB64
-			}
+		params := cloneMap(req.Params)
+		if img := strings.TrimSpace(req.InputImage); img != "" {
+			params["input_image"] = img
+		}
+		if imgURL := strings.TrimSpace(req.InputImageURL); imgURL != "" {
+			params["input_image_url"] = imgURL
+		}
+		if imgB64 := strings.TrimSpace(req.InputImageBase64); imgB64 != "" {
+			params["input_image_base64"] = imgB64
+		}
+		if imgEnd := strings.TrimSpace(req.InputImageEnd); imgEnd != "" {
+			params["input_image_end"] = imgEnd
+		}
+		if imgEndURL := strings.TrimSpace(req.InputImageEndURL); imgEndURL != "" {
+			params["input_image_end_url"] = imgEndURL
+		}
+		if imgEndB64 := strings.TrimSpace(req.InputImageEndBase64); imgEndB64 != "" {
+			params["input_image_end_base64"] = imgEndB64
+		}
 
 		createReq := CreateTaskRequest{
 			WorkflowID:     workflowID,
@@ -1366,12 +1371,13 @@ func (s *Server) handleGenerateCategories(w http.ResponseWriter, r *http.Request
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"categories": []string{"t2i", "edit", "t2v", "i2v"},
+		"categories": []string{"t2i", "t2i-darkbeast6", "edit", "t2v", "i2v"},
 		"endpoints": map[string]string{
-			"t2i":  "/api/v1/generate/t2i",
-			"edit": "/api/v1/generate/edit",
-			"t2v":  "/api/v1/generate/t2v",
-			"i2v":  "/api/v1/generate/i2v",
+			"t2i":            "/api/v1/generate/t2i",
+			"t2i-darkbeast6": "/api/v1/generate/t2i-darkbeast6",
+			"edit":           "/api/v1/generate/edit",
+			"t2v":            "/api/v1/generate/t2v",
+			"i2v":            "/api/v1/generate/i2v",
 		},
 	})
 }
@@ -1531,14 +1537,14 @@ func loadWorkflows(configDir string) (map[string]WorkflowConfig, error) {
 		if cfg.OutputKind == "" {
 			cfg.OutputKind = "image"
 		}
-			if _, err := os.Stat(cfg.TemplatePath); err != nil {
-				return nil, fmt.Errorf("template not found for workflow=%s: %s", cfg.ID, cfg.TemplatePath)
-			}
-			if _, exists := out[cfg.ID]; exists {
-				return nil, fmt.Errorf("duplicate workflow id: %s", cfg.ID)
-			}
-			out[cfg.ID] = cfg
+		if _, err := os.Stat(cfg.TemplatePath); err != nil {
+			return nil, fmt.Errorf("template not found for workflow=%s: %s", cfg.ID, cfg.TemplatePath)
 		}
+		if _, exists := out[cfg.ID]; exists {
+			return nil, fmt.Errorf("duplicate workflow id: %s", cfg.ID)
+		}
+		out[cfg.ID] = cfg
+	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("no workflow yaml found under %s", configDir)
 	}
@@ -1550,9 +1556,9 @@ func defaultServiceConfig() ServiceConfig {
 		ExposeWorkflowCatalog: false,
 		ExposeRawTaskCreate:   false,
 		DefaultWorkflows: CategoryWorkflowConfig{
-			TextToImage: "t2i_normal",
-			ImageEdit:   "inpaint_zimage_lock",
-			TextToVideo: "t2v_default",
+			TextToImage:  "t2i_normal",
+			ImageEdit:    "inpaint_zimage_lock",
+			TextToVideo:  "t2v_default",
 			ImageToVideo: "i2v_wan_remix_single",
 		},
 	}
@@ -2831,6 +2837,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/generate/categories", srv.handleGenerateCategories)
 	mux.HandleFunc("/api/v1/generate/t2i", srv.handleGenerate("t2i"))
+	mux.HandleFunc("/api/v1/generate/t2i-darkbeast6", srv.handleGenerate("t2i-darkbeast6"))
 	mux.HandleFunc("/api/v1/generate/edit", srv.handleGenerate("edit"))
 	mux.HandleFunc("/api/v1/generate/t2v", srv.handleGenerate("t2v"))
 	mux.HandleFunc("/api/v1/generate/i2v", srv.handleGenerate("i2v"))

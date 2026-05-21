@@ -1,0 +1,24 @@
+id: t2i_darkbeast6_simple_hybrid
+name: DarkBeast6 Simple Hybrid T2I
+template: ../../../workflows/t2i_zimage_darkbeast_simple_hybrid.json
+template_format: api
+mode: t2i
+output_kind: image
+timeout_sec: 1800
+required:
+  - prompt
+  - width
+  - height
+defaults:
+  model_name: DarkBeastZ6-BlitZ-F32-ComfyUI.safetensors
+  clip_name: zImageTurbo_textEncoder.safetensors
+  vae_name: ae.safetensors
+  seed: -1
+  steps_stage1: 5
+  cfg_stage1: 1.0
+  steps_stage2: 15
+  cfg_stage2: 1.0
+  denoise_stage2: 0.75
+  upscale_by: 1.25
+  width: 768
+  height: 1440

@@ -21,9 +21,10 @@ curl -s http://127.0.0.1:8090/healthz
 curl -s http://127.0.0.1:8090/api/v1/generate/categories | jq
 ```
 
-## 2.2 创建任务（四选一）
+## 2.2 创建任务
 
 - `POST /api/v1/generate/t2i` 文生图
+- `POST /api/v1/generate/t2i-darkbeast6` DarkBeast6 简易混合文生图
 - `POST /api/v1/generate/edit` 编辑图（锁定生图）
 - `POST /api/v1/generate/t2v` 文生视频
 - `POST /api/v1/generate/i2v` 图生视频
@@ -84,6 +85,19 @@ curl -s http://127.0.0.1:8090/api/v1/generate/categories | jq
 - `params.detail_bbox_model`：直接指定检测器模型名（如 `bbox/pussyV2.pt` 或 `pussyV2.pt`）
   - 若同时传单个和多个参数，会合并去重后按顺序执行（`detail_targets` / `detail_target` 在前）
   - 检测器越多，速度会越慢
+
+DarkBeast6 简易混合文生图（`/api/v1/generate/t2i-darkbeast6`）默认参数：
+
+- 固定 workflow：`t2i_darkbeast6_simple_hybrid`
+- 默认尺寸：`768x1440`
+- `params.steps_stage1`：`5`
+- `params.steps_stage2`：`15`
+- `params.cfg_stage1` / `params.cfg_stage2`：`1.0`
+- `params.denoise_stage2`：`0.75`
+- `params.upscale_by`：`1.25`
+- 默认模型：`DarkBeastZ6-BlitZ-F32-ComfyUI.safetensors`
+- 默认文本编码器：`zImageTurbo_textEncoder.safetensors`
+- 默认 VAE：`ae.safetensors`
 
 返回：`201 Created`
 
@@ -162,6 +176,7 @@ default_workflows:
 
 - 外部请求只选类别，不传 `workflow_id`
 - 类别到真实 workflow 的映射在服务端配置
+- `t2i-darkbeast6` 是固定 workflow 接口，不受 `default_workflows` 影响
 
 ## 6. 内部接口（默认关闭）
 
