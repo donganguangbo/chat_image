@@ -288,10 +288,13 @@ wait_http_ok "http://127.0.0.1:${WEB_PORT}/healthz" "$WEB_WAIT_SEC" "web" || {
 }
 
 echo "[7/7] starting go gateway (multi comfy load-balance)..."
+# Generated media lives on the mounted file-storage volume (/root/autodl-fs).
+# Gateway writes `images/` and `videos/` directly under this path — no extra
+# `outputs/` wrapping — so the FS root maps cleanly to URL `/outputs/`.
 go_log="$LOG_DIR/go_gateway_${timestamp}.log"
 nohup env LISTEN_ADDR=":${GO_PORT}" \
   WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/go_gateway/configs/workflows" \
-  OUTPUT_DIR="$PROJECT_ROOT/outputs" \
+  OUTPUT_DIR="/root/autodl-fs" \
   COMFY_URLS="$GO_COMFY_URLS" \
   GO_WORKERS="$GO_WORKERS" \
   GO_GATEWAY_I2V_TRIM_HEAD_SEC="$I2V_TRIM_HEAD_SEC" \
