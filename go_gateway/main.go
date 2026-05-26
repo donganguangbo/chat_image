@@ -2854,15 +2854,19 @@ func (nc *nonceCache) cleanup() {
 }
 
 func bypassAuth(r *http.Request) bool {
+	// CORS preflight has no body and never carries auth headers in this product;
+	// the real request that follows is signed.
 	if r.Method == http.MethodOptions {
 		return true
 	}
+	// Health probes (k8s, uptime monitors) need no auth.
 	if r.URL.Path == "/healthz" {
 		return true
 	}
-	if strings.HasPrefix(r.URL.Path, "/outputs/") {
-		return true
-	}
+	// NOTE: /outputs/* used to bypass; it no longer does. chat-web fronts all
+	// output access via /api/media/* and adds the HMAC signature server-side,
+	// so end users never hit the gateway directly. See chat-web's
+	// src/app/api/media/[...path]/route.ts.
 	return false
 }
 
