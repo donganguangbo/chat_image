@@ -93,8 +93,11 @@ type CategoryGenerateRequest struct {
 type TaskOutput struct {
 	Kind     string `json:"kind"`
 	Filename string `json:"filename"`
-	URL      string `json:"url"`
-	Size     int64  `json:"size"`
+	// Key is the S3 object key (img/img|vid/{yyyymmdd}/{name}). Empty when
+	// object storage is disabled or the upload failed; callers fall back to URL.
+	Key  string `json:"key,omitempty"`
+	URL  string `json:"url"`
+	Size int64  `json:"size"`
 }
 
 type Task struct {
@@ -371,9 +374,10 @@ type Server struct {
 	service     ServiceConfig
 	workerCount int
 	outputDir   string
+	storage     *ObjectStorage
 }
 
-func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, service ServiceConfig, workerCount int, outputDir string) *Server {
+func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, service ServiceConfig, workerCount int, outputDir string, storage *ObjectStorage) *Server {
 	if workerCount <= 0 {
 		workerCount = 1
 	}
@@ -385,6 +389,7 @@ func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, servic
 		service:     service,
 		workerCount: workerCount,
 		outputDir:   outputDir,
+		storage:     storage,
 	}
 	for i := 0; i < workerCount; i++ {
 		go s.workerLoop(i + 1)
@@ -807,12 +812,21 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					continue
 				}
 				stat, _ := os.Stat(targetPath)
-				out = append(out, TaskOutput{
+				item := TaskOutput{
 					Kind:     kind,
 					Filename: targetName,
 					URL:      urlPrefix + targetName,
 					Size:     ifSize(stat),
-				})
+				}
+				if s.storage != nil {
+					key := gatewayObjectKey(kind, targetName, time.Now())
+					if err := s.storage.UploadPrivate(context.Background(), key, content, mime.TypeByExtension(ext)); err != nil {
+						log.Printf("[storage] upload %s failed: %v", key, err)
+					} else {
+						item.Key = key
+					}
+				}
+				out = append(out, item)
 			}
 		}
 	}
@@ -2981,7 +2995,16 @@ func main() {
 		log.Fatal("no comfy backends configured (set COMFY_URL or COMFY_URLS)")
 	}
 	workerCount := envInt("GO_WORKERS", len(comfyPool.URLs()))
-	srv := NewServer(workflows, comfyPool, serviceCfg, workerCount, absOutputDir)
+	storage, s3Enabled, err := NewObjectStorageFromEnv(os.Getenv)
+	if err != nil {
+		log.Fatalf("object storage misconfigured: %v", err)
+	}
+	if s3Enabled {
+		log.Printf("[storage] Linode object storage enabled")
+	} else {
+		log.Printf("[storage] object storage disabled (S3_BUCKET unset); writing to local disk only")
+	}
+	srv := NewServer(workflows, comfyPool, serviceCfg, workerCount, absOutputDir, storage)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/generate/categories", srv.handleGenerateCategories)
