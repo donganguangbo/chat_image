@@ -800,7 +800,8 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				if safeSubfolder != "" && safeSubfolder != "." {
 					safeBase = safeSubfolder + "_" + safeBase
 				}
-				targetName := fmt.Sprintf("%s_%s_%s%s", shortID(taskID), time.Now().Format("150405"), safeBase, ext)
+				now := time.Now()
+				targetName := fmt.Sprintf("%s_%s_%s%s", shortID(taskID), now.Format("150405"), safeBase, ext)
 				targetDir := imagesDir
 				urlPrefix := "/outputs/images/"
 				if kind == "video" {
@@ -819,8 +820,11 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					Size:     ifSize(stat),
 				}
 				if s.storage != nil {
-					key := gatewayObjectKey(kind, targetName, time.Now())
-					if err := s.storage.UploadPrivate(context.Background(), key, content, mime.TypeByExtension(ext)); err != nil {
+					key := gatewayObjectKey(kind, targetName, now)
+					uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					err := s.storage.UploadPrivate(uploadCtx, key, content, mime.TypeByExtension(ext))
+					cancel()
+					if err != nil {
 						log.Printf("[storage] upload %s failed: %v", key, err)
 					} else {
 						item.Key = key
