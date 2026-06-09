@@ -34,7 +34,8 @@ func TestStorageConfigFromEnv(t *testing.T) {
 	if !ok || err != nil {
 		t.Fatalf("full env: ok=%v err=%v", ok, err)
 	}
-	if cfg.bucket != "ichat" || cfg.region != "us-ord-10" || cfg.endpoint != "us-ord-10.linodeobjects.com" {
+	if cfg.bucket != "ichat" || cfg.region != "us-ord-10" || cfg.endpoint != "us-ord-10.linodeobjects.com" ||
+		cfg.accessKey != "k" || cfg.secretKey != "s" {
 		t.Fatalf("cfg = %+v", cfg)
 	}
 }

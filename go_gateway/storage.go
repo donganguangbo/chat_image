@@ -61,7 +61,7 @@ func NewObjectStorageFromEnv(getenv func(string) string) (*ObjectStorage, bool, 
 	if err != nil || !ok {
 		return nil, false, err
 	}
-	awsCfg, err := config.LoadDefaultConfig(context.TODO(),
+	awsCfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(cfg.region),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(cfg.accessKey, cfg.secretKey, "")),
@@ -73,6 +73,7 @@ func NewObjectStorageFromEnv(getenv func(string) string) (*ObjectStorage, bool, 
 		o.BaseEndpoint = aws.String("https://" + cfg.endpoint)
 		o.UsePathStyle = true
 		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
+		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 	})
 	return &ObjectStorage{client: client, bucket: cfg.bucket}, true, nil
 }
@@ -102,6 +103,8 @@ func (o *ObjectStorage) UploadPrivate(ctx context.Context, key string, body []by
 	if contentType != "" {
 		in.ContentType = aws.String(contentType)
 	}
-	_, err := o.client.PutObject(ctx, in)
-	return err
+	if _, err := o.client.PutObject(ctx, in); err != nil {
+		return fmt.Errorf("upload %s to %s: %w", key, o.bucket, err)
+	}
+	return nil
 }
