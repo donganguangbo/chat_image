@@ -3,6 +3,8 @@ package main
 import (
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestGatewayObjectKey(t *testing.T) {
@@ -37,5 +39,30 @@ func TestStorageConfigFromEnv(t *testing.T) {
 	if cfg.bucket != "ichat" || cfg.region != "us-ord-10" || cfg.endpoint != "us-ord-10.linodeobjects.com" ||
 		cfg.accessKey != "k" || cfg.secretKey != "s" {
 		t.Fatalf("cfg = %+v", cfg)
+	}
+}
+
+func TestServiceConfigS3YAML(t *testing.T) {
+	raw := `
+default_workflows:
+  text_to_image: t2i
+s3:
+  endpoint: us-southeast-1.linodeobjects.com
+  region: us-southeast-1
+  bucket: ichat-e0
+  access_key: AK
+  secret_key: SK
+`
+	var cfg ServiceConfig
+	if err := yaml.Unmarshal([]byte(raw), &cfg); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if cfg.S3.Endpoint != "us-southeast-1.linodeobjects.com" || cfg.S3.Region != "us-southeast-1" ||
+		cfg.S3.Bucket != "ichat-e0" || cfg.S3.AccessKey != "AK" || cfg.S3.SecretKey != "SK" {
+		t.Fatalf("S3 = %+v", cfg.S3)
+	}
+	st, ok, err := NewObjectStorageFromConfig(cfg.S3)
+	if err != nil || !ok || st == nil {
+		t.Fatalf("NewObjectStorageFromConfig: ok=%v err=%v st=%v", ok, err, st)
 	}
 }

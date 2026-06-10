@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // ObjectStorage uploads generated media to a Linode (S3-compatible) bucket.
@@ -31,43 +30,53 @@ type storageConfig struct {
 	secretKey string
 }
 
-// storageConfigFromEnv reads S3_* via the given getenv. Returns ok=false (no
-// error) when S3_BUCKET is empty — object storage is then disabled and the
-// gateway keeps writing only to local disk. Returns an error when S3_BUCKET is
-// set but a required companion var is missing (misconfiguration).
-func storageConfigFromEnv(getenv func(string) string) (storageConfig, bool, error) {
+// S3FileConfig is the `s3:` section of configs/service.yaml.
+type S3FileConfig struct {
+	Endpoint  string `yaml:"endpoint"`
+	Region    string `yaml:"region"`
+	Bucket    string `yaml:"bucket"`
+	AccessKey string `yaml:"access_key"`
+	SecretKey string `yaml:"secret_key"`
+}
+
+// validateStorageConfig trims the five settings and decides whether object
+// storage is enabled. ok=false with no error means bucket is empty (disabled →
+// disk-only); an error means bucket is set but a companion value is missing.
+func validateStorageConfig(endpoint, region, bucket, accessKey, secretKey string) (storageConfig, bool, error) {
 	c := storageConfig{
-		endpoint:  strings.TrimSpace(getenv("S3_ENDPOINT")),
-		region:    strings.TrimSpace(getenv("S3_REGION")),
-		bucket:    strings.TrimSpace(getenv("S3_BUCKET")),
-		accessKey: strings.TrimSpace(getenv("S3_ACCESS_KEY")),
-		secretKey: strings.TrimSpace(getenv("S3_SECRET_KEY")),
+		endpoint:  strings.TrimSpace(endpoint),
+		region:    strings.TrimSpace(region),
+		bucket:    strings.TrimSpace(bucket),
+		accessKey: strings.TrimSpace(accessKey),
+		secretKey: strings.TrimSpace(secretKey),
 	}
 	if c.bucket == "" {
 		return storageConfig{}, false, nil
 	}
 	if c.endpoint == "" || c.region == "" || c.accessKey == "" || c.secretKey == "" {
 		return storageConfig{}, false, fmt.Errorf(
-			"S3_BUCKET set but S3_ENDPOINT/S3_REGION/S3_ACCESS_KEY/S3_SECRET_KEY incomplete")
+			"s3 config: bucket set but endpoint/region/access_key/secret_key incomplete")
 	}
 	return c, true, nil
 }
 
-// NewObjectStorageFromEnv builds an ObjectStorage from S3_* env vars. When
-// object storage is not configured it returns (nil, false, nil) so the caller
-// can run disk-only.
-func NewObjectStorageFromEnv(getenv func(string) string) (*ObjectStorage, bool, error) {
-	cfg, ok, err := storageConfigFromEnv(getenv)
-	if err != nil || !ok {
-		return nil, false, err
-	}
+// storageConfigFromEnv reads S3_* via the given getenv (kept for tests/env use).
+func storageConfigFromEnv(getenv func(string) string) (storageConfig, bool, error) {
+	return validateStorageConfig(
+		getenv("S3_ENDPOINT"), getenv("S3_REGION"), getenv("S3_BUCKET"),
+		getenv("S3_ACCESS_KEY"), getenv("S3_SECRET_KEY"))
+}
+
+// buildObjectStorage constructs the Linode S3 client (path-style + custom
+// endpoint + request/response checksum opt-out, mirroring go-pay/bucket_test.go).
+func buildObjectStorage(cfg storageConfig) (*ObjectStorage, error) {
 	awsCfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(cfg.region),
 		config.WithCredentialsProvider(
 			credentials.NewStaticCredentialsProvider(cfg.accessKey, cfg.secretKey, "")),
 	)
 	if err != nil {
-		return nil, false, fmt.Errorf("load s3 config: %w", err)
+		return nil, fmt.Errorf("load s3 config: %w", err)
 	}
 	client := s3.NewFromConfig(awsCfg, func(o *s3.Options) {
 		o.BaseEndpoint = aws.String("https://" + cfg.endpoint)
@@ -75,7 +84,22 @@ func NewObjectStorageFromEnv(getenv func(string) string) (*ObjectStorage, bool, 
 		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
 		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 	})
-	return &ObjectStorage{client: client, bucket: cfg.bucket}, true, nil
+	return &ObjectStorage{client: client, bucket: cfg.bucket}, nil
+}
+
+// NewObjectStorageFromConfig builds an ObjectStorage from the service.yaml `s3:`
+// section. Returns (nil, false, nil) when the bucket is unset (disabled →
+// disk-only).
+func NewObjectStorageFromConfig(c S3FileConfig) (*ObjectStorage, bool, error) {
+	cfg, ok, err := validateStorageConfig(c.Endpoint, c.Region, c.Bucket, c.AccessKey, c.SecretKey)
+	if err != nil || !ok {
+		return nil, false, err
+	}
+	st, err := buildObjectStorage(cfg)
+	if err != nil {
+		return nil, false, err
+	}
+	return st, true, nil
 }
 
 // gatewayObjectKey builds the S3 key for a generated file. MUST stay consistent
@@ -92,13 +116,14 @@ func gatewayObjectKey(kind, name string, now time.Time) string {
 	return fmt.Sprintf("img/%s/%s/%s", sub, now.UTC().Format("20060102"), name)
 }
 
-// UploadPrivate stores body at key with a private canned ACL.
+// UploadPrivate stores body at key. The bucket is private by default and we send
+// NO x-amz-acl header — Linode rejects ACL headers on buckets with object ACLs
+// disabled (and the key may lack PutObjectAcl). Mirrors go-pay/bucket_test.go.
 func (o *ObjectStorage) UploadPrivate(ctx context.Context, key string, body []byte, contentType string) error {
 	in := &s3.PutObjectInput{
 		Bucket: aws.String(o.bucket),
 		Key:    aws.String(key),
 		Body:   bytes.NewReader(body),
-		ACL:    types.ObjectCannedACLPrivate,
 	}
 	if contentType != "" {
 		in.ContentType = aws.String(contentType)

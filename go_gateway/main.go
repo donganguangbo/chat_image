@@ -65,6 +65,7 @@ type ServiceConfig struct {
 	ExposeWorkflowCatalog bool                   `yaml:"expose_workflow_catalog"`
 	ExposeRawTaskCreate   bool                   `yaml:"expose_raw_task_create"`
 	DefaultWorkflows      CategoryWorkflowConfig `yaml:"default_workflows"`
+	S3                    S3FileConfig           `yaml:"s3"`
 }
 
 type CreateTaskRequest struct {
@@ -1614,6 +1615,7 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 	}
 	cfg.ExposeWorkflowCatalog = fileCfg.ExposeWorkflowCatalog
 	cfg.ExposeRawTaskCreate = fileCfg.ExposeRawTaskCreate
+	cfg.S3 = fileCfg.S3
 
 	check := func(category, workflowID string) error {
 		if workflowID == "" {
@@ -2999,14 +3001,14 @@ func main() {
 		log.Fatal("no comfy backends configured (set COMFY_URL or COMFY_URLS)")
 	}
 	workerCount := envInt("GO_WORKERS", len(comfyPool.URLs()))
-	storage, s3Enabled, err := NewObjectStorageFromEnv(os.Getenv)
+	storage, s3Enabled, err := NewObjectStorageFromConfig(serviceCfg.S3)
 	if err != nil {
 		log.Fatalf("object storage misconfigured: %v", err)
 	}
 	if s3Enabled {
-		log.Printf("[storage] Linode object storage enabled")
+		log.Printf("[storage] Linode object storage enabled (bucket=%s)", serviceCfg.S3.Bucket)
 	} else {
-		log.Printf("[storage] object storage disabled (S3_BUCKET unset); writing to local disk only")
+		log.Printf("[storage] object storage disabled (s3.bucket unset in service.yaml); writing to local disk only")
 	}
 	srv := NewServer(workflows, comfyPool, serviceCfg, workerCount, absOutputDir, storage)
 

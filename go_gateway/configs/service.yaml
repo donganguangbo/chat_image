@@ -6,3 +6,10 @@ default_workflows:
   image_edit: inpaint_zimage_lock_red_pose
   text_to_video: t2v_default
   image_to_video: i2v_wan_remix_single_v30
+
+s3:
+  endpoint: us-southeast-1.linodeobjects.com
+  region: us-southeast-1
+  bucket: ichat-e0
+  access_key: OUPDP0HM6XJOGHGVIQP3
+  secret_key: HGumhbKbe8f2HCUMP0MDmZkRUyHe2Mdyw7lVJsbr
