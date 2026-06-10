@@ -3,14 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 // ObjectStorage uploads generated media to a Linode (S3-compatible) bucket.
@@ -132,4 +135,26 @@ func (o *ObjectStorage) UploadPrivate(ctx context.Context, key string, body []by
 		return fmt.Errorf("upload %s to %s: %w", key, o.bucket, err)
 	}
 	return nil
+}
+
+// Exists reports whether key is already present in the bucket. A 404 (NotFound)
+// is reported as (false, nil); any other error is surfaced. Used by the one-shot
+// outputs migration so re-runs are idempotent and resumable.
+func (o *ObjectStorage) Exists(ctx context.Context, key string) (bool, error) {
+	_, err := o.client.HeadObject(ctx, &s3.HeadObjectInput{
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(key),
+	})
+	if err == nil {
+		return true, nil
+	}
+	var nf *types.NotFound
+	if errors.As(err, &nf) {
+		return false, nil
+	}
+	var re *awshttp.ResponseError
+	if errors.As(err, &re) && re.HTTPStatusCode() == 404 {
+		return false, nil
+	}
+	return false, err
 }
