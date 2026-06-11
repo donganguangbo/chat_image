@@ -53,9 +53,8 @@ bindings:
   - node: "209"
     input: value
     param: duration_sec
-  - node: "379"
-    input: frame_rate
-    param: fps
+  # node 379 是 RIFE 2x 插帧后的输出,播放帧率应为 基础fps×2(模板已写死 32)。
+  # 不要把用户的 fps(16)直接绑到它,否则会按 16 播放 → 时长翻倍。
   - node: "218"
     input: frame_rate
     param: fps

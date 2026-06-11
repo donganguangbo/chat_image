@@ -3469,7 +3469,7 @@
       },
       "widgets_values": {
         "frame_rate": 32,
-        "loop_count": 69,
+        "loop_count": 0,
         "filename_prefix": "Video/%date:yyyy-MM-dd%/%date:hhmmss%",
         "format": "video/h264-mp4",
         "pix_fmt": "yuv420p",
