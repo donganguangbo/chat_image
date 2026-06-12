@@ -9,11 +9,11 @@ import (
 
 func TestGatewayObjectKey(t *testing.T) {
 	now := time.Date(2026, 6, 9, 23, 30, 0, 0, time.UTC)
-	if got := gatewayObjectKey("image", "abc_120530_out.png", now); got != "img/img/20260609/abc_120530_out.png" {
-		t.Fatalf("image key = %q, want img/img/20260609/abc_120530_out.png", got)
+	if got := gatewayObjectKey("image", "abc_120530_out.png", now); got != "images/20260609/abc_120530_out.png" {
+		t.Fatalf("image key = %q, want images/20260609/abc_120530_out.png", got)
 	}
-	if got := gatewayObjectKey("video", "abc_120530_out.mp4", now); got != "img/vid/20260609/abc_120530_out.mp4" {
-		t.Fatalf("video key = %q, want img/vid/20260609/abc_120530_out.mp4", got)
+	if got := gatewayObjectKey("video", "abc_120530_out.mp4", now); got != "videos/20260609/abc_120530_out.mp4" {
+		t.Fatalf("video key = %q, want videos/20260609/abc_120530_out.mp4", got)
 	}
 }
 
@@ -47,9 +47,9 @@ func TestServiceConfigS3YAML(t *testing.T) {
 default_workflows:
   text_to_image: t2i
 s3:
-  endpoint: us-southeast-1.linodeobjects.com
-  region: us-southeast-1
-  bucket: ichat-e0
+  endpoint: us-ord-10.linodeobjects.com
+  region: us-ord-10
+  bucket: ichat
   access_key: AK
   secret_key: SK
 `
@@ -57,8 +57,8 @@ s3:
 	if err := yaml.Unmarshal([]byte(raw), &cfg); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}
-	if cfg.S3.Endpoint != "us-southeast-1.linodeobjects.com" || cfg.S3.Region != "us-southeast-1" ||
-		cfg.S3.Bucket != "ichat-e0" || cfg.S3.AccessKey != "AK" || cfg.S3.SecretKey != "SK" {
+	if cfg.S3.Endpoint != "us-ord-10.linodeobjects.com" || cfg.S3.Region != "us-ord-10" ||
+		cfg.S3.Bucket != "ichat" || cfg.S3.AccessKey != "AK" || cfg.S3.SecretKey != "SK" {
 		t.Fatalf("S3 = %+v", cfg.S3)
 	}
 	st, ok, err := NewObjectStorageFromConfig(cfg.S3)

@@ -8,8 +8,8 @@ default_workflows:
   image_to_video: i2v_wan_remix_single_v30
 
 s3:
-  endpoint: us-southeast-1.linodeobjects.com
-  region: us-southeast-1
-  bucket: ichat-e0
+  endpoint: us-ord-10.linodeobjects.com
+  region: us-ord-10
+  bucket: ichat
   access_key: OUPDP0HM6XJOGHGVIQP3
   secret_key: HGumhbKbe8f2HCUMP0MDmZkRUyHe2Mdyw7lVJsbr

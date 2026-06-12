@@ -95,7 +95,7 @@ type CategoryGenerateRequest struct {
 type TaskOutput struct {
 	Kind     string `json:"kind"`
 	Filename string `json:"filename"`
-	// Key is the S3 object key (img/img|vid/{yyyymmdd}/{name}). Empty when
+	// Key is the S3 object key (images|videos/{yyyymmdd}/{name}). Empty when
 	// object storage is disabled or the upload failed; callers fall back to URL.
 	Key  string `json:"key,omitempty"`
 	URL  string `json:"url"`
@@ -3133,8 +3133,8 @@ func withHMACAuth(next http.Handler, secret string, nc *nonceCache) http.Handler
 }
 
 // migrateOutputsToS3 uploads every file under {outputDir}/images and
-// {outputDir}/videos to the bucket, keyed exactly like the chat-side backfill
-// (img/{img|vid}/{yyyymmdd(file mtime, UTC)}/{name}) via gatewayObjectKey, so the
+// {outputDir}/videos to the bucket, keyed exactly like new gateway outputs
+// (images|videos/{yyyymmdd(file mtime, UTC)}/{name}) via gatewayObjectKey, so the
 // gateway sweep and the DB-ref backfill never produce divergent keys. It reads
 // the DB nothing and never writes to disk, so it is safe to run alongside a live
 // gateway. dry=true logs the keys without uploading.

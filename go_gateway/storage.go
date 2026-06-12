@@ -109,14 +109,13 @@ func NewObjectStorageFromConfig(c S3FileConfig) (*ObjectStorage, bool, error) {
 // with the chat-side scheme in
 // services/chat-web/src/server/lib/object-storage-keys.ts:
 //
-//	img/img/{yyyymmdd}/{name}   for images
-//	img/vid/{yyyymmdd}/{name}   for videos
+//	images/{yyyymmdd}/{name}   for images
+//	videos/{yyyymmdd}/{name}   for videos
 func gatewayObjectKey(kind, name string, now time.Time) string {
-	sub := "img"
 	if kind == "video" {
-		sub = "vid"
+		return fmt.Sprintf("videos/%s/%s", now.UTC().Format("20060102"), name)
 	}
-	return fmt.Sprintf("img/%s/%s/%s", sub, now.UTC().Format("20060102"), name)
+	return fmt.Sprintf("images/%s/%s", now.UTC().Format("20060102"), name)
 }
 
 // UploadPrivate stores body at key. The bucket is private by default and we send
