@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -789,9 +790,12 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					continue
 				}
 
-				ext := strings.ToLower(filepath.Ext(filename))
-				if ext == "" {
-					ext = ".bin"
+				content, ext, err := prepareGeneratedOutputContent(kind, filename, content, generatedOutputConverters{
+					imageToAVIF:   convertImageBytesToAVIF,
+					videoToAV1MP4: convertVideoBytesToAV1MP4,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("prepare output %s: %w", filename, err)
 				}
 				safeBase := sanitizeName(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
 				if safeBase == "" {
@@ -823,7 +827,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				if s.storage != nil {
 					key := gatewayObjectKey(kind, targetName, now)
 					uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-					err := s.storage.UploadPrivate(uploadCtx, key, content, mime.TypeByExtension(ext))
+					err := s.storage.UploadPrivate(uploadCtx, key, content, outputContentType(ext))
 					cancel()
 					if err != nil {
 						log.Printf("[storage] upload %s failed: %v", key, err)
@@ -861,6 +865,186 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 		return nil, fmt.Errorf("no output files produced for workflow=%s", cfg.ID)
 	}
 	return out, nil
+}
+
+type generatedMediaConverter func(content []byte, sourceExt string) ([]byte, error)
+
+type generatedOutputConverters struct {
+	imageToAVIF   generatedMediaConverter
+	videoToAV1MP4 generatedMediaConverter
+}
+
+func prepareGeneratedOutputContent(kind, filename string, content []byte, converters generatedOutputConverters) ([]byte, string, error) {
+	ext := strings.ToLower(filepath.Ext(filename))
+	if ext == "" {
+		ext = ".bin"
+	}
+	switch kind {
+	case "image":
+		if ext == ".avif" {
+			return content, ".avif", nil
+		}
+		if converters.imageToAVIF == nil {
+			return nil, "", errors.New("AVIF converter is not configured")
+		}
+		converted, err := converters.imageToAVIF(content, ext)
+		if err != nil {
+			return nil, "", fmt.Errorf("convert generated image to AVIF: %w", err)
+		}
+		return converted, ".avif", nil
+	case "video":
+		if converters.videoToAV1MP4 == nil {
+			return nil, "", errors.New("AV1 video converter is not configured")
+		}
+		converted, err := converters.videoToAV1MP4(content, ext)
+		if err != nil {
+			return nil, "", fmt.Errorf("convert generated video to AV1 MP4: %w", err)
+		}
+		return converted, ".mp4", nil
+	default:
+		return content, ext, nil
+	}
+}
+
+func convertImageBytesToAVIF(content []byte, sourceExt string) ([]byte, error) {
+	if len(content) == 0 {
+		return nil, errors.New("empty image content")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "go_gateway_avif_*")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	inputPath := filepath.Join(tmpDir, "input"+sanitizeMediaInputExt(sourceExt))
+	outputPath := filepath.Join(tmpDir, "output.avif")
+	if err := os.WriteFile(inputPath, content, 0o600); err != nil {
+		return nil, err
+	}
+
+	baseArgs := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-y",
+		"-i", inputPath,
+		"-frames:v", "1",
+		"-an",
+		"-pix_fmt", "yuv420p",
+	}
+	attempts := []struct {
+		name string
+		args []string
+	}{
+		{"libsvtav1", append(append([]string{}, baseArgs...), "-c:v", "libsvtav1", "-crf", "30", "-preset", "8", outputPath)},
+		{"libaom-av1", append(append([]string{}, baseArgs...), "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "6", outputPath)},
+		{"default-av1", append(append([]string{}, baseArgs...), "-crf", "30", outputPath)},
+	}
+	var failures []string
+	for _, attempt := range attempts {
+		_ = os.Remove(outputPath)
+		output, err := exec.Command("ffmpeg", attempt.args...).CombinedOutput()
+		if err != nil {
+			msg := strings.TrimSpace(string(output))
+			if msg == "" {
+				msg = err.Error()
+			}
+			failures = append(failures, fmt.Sprintf("%s: %s", attempt.name, truncate(msg, 1024)))
+			continue
+		}
+
+		converted, err := os.ReadFile(outputPath)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: read output: %v", attempt.name, err))
+			continue
+		}
+		if len(converted) == 0 {
+			failures = append(failures, fmt.Sprintf("%s: produced empty AVIF", attempt.name))
+			continue
+		}
+		return converted, nil
+	}
+	return nil, fmt.Errorf("ffmpeg AVIF conversion failed: %s", strings.Join(failures, "; "))
+}
+
+func convertVideoBytesToAV1MP4(content []byte, sourceExt string) ([]byte, error) {
+	if len(content) == 0 {
+		return nil, errors.New("empty video content")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "go_gateway_av1_video_*")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(tmpDir) }()
+
+	inputPath := filepath.Join(tmpDir, "input"+sanitizeMediaInputExt(sourceExt))
+	outputPath := filepath.Join(tmpDir, "output.mp4")
+	if err := os.WriteFile(inputPath, content, 0o600); err != nil {
+		return nil, err
+	}
+
+	baseArgs := []string{
+		"-hide_banner",
+		"-loglevel", "error",
+		"-y",
+		"-i", inputPath,
+		"-map", "0:v:0",
+		"-an",
+		"-pix_fmt", "yuv420p",
+		"-movflags", "+faststart",
+	}
+	attempts := []struct {
+		name string
+		args []string
+	}{
+		{"libsvtav1", append(append([]string{}, baseArgs...), "-c:v", "libsvtav1", "-crf", "28", "-preset", "8", outputPath)},
+		{"libaom-av1", append(append([]string{}, baseArgs...), "-c:v", "libaom-av1", "-crf", "28", "-b:v", "0", "-cpu-used", "6", outputPath)},
+		{"librav1e", append(append([]string{}, baseArgs...), "-c:v", "librav1e", "-qp", "84", "-speed", "6", outputPath)},
+	}
+	var failures []string
+	for _, attempt := range attempts {
+		_ = os.Remove(outputPath)
+		output, err := exec.Command("ffmpeg", attempt.args...).CombinedOutput()
+		if err != nil {
+			msg := strings.TrimSpace(string(output))
+			if msg == "" {
+				msg = err.Error()
+			}
+			failures = append(failures, fmt.Sprintf("%s: %s", attempt.name, truncate(msg, 1024)))
+			continue
+		}
+
+		converted, err := os.ReadFile(outputPath)
+		if err != nil {
+			failures = append(failures, fmt.Sprintf("%s: read output: %v", attempt.name, err))
+			continue
+		}
+		if len(converted) == 0 {
+			failures = append(failures, fmt.Sprintf("%s: produced empty MP4", attempt.name))
+			continue
+		}
+		return converted, nil
+	}
+	return nil, fmt.Errorf("ffmpeg AV1 MP4 conversion failed: %s", strings.Join(failures, "; "))
+}
+
+func sanitizeMediaInputExt(ext string) string {
+	ext = strings.ToLower(strings.TrimSpace(ext))
+	if ext == "" || ext == ".bin" {
+		return ".img"
+	}
+	if !strings.HasPrefix(ext, ".") || strings.ContainsAny(ext, `/\:`) {
+		return ".img"
+	}
+	return ext
+}
+
+func outputContentType(ext string) string {
+	if strings.EqualFold(strings.TrimSpace(ext), ".avif") {
+		return "image/avif"
+	}
+	return mime.TypeByExtension(strings.ToLower(strings.TrimSpace(ext)))
 }
 
 func summarizeOutputNodes(outputsAny map[string]any) string {
