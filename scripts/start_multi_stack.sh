@@ -4,11 +4,10 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-HOST="${HOST:-0.0.0.0}"
-WEB_PORT="${WEB_PORT:-6006}"
+UI_PORT="${UI_PORT:-6006}"
 GO_PORT="${GO_PORT:-6008}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
-COMFY_PORTS="${COMFY_PORTS:-8188 8189 8190}"
+COMFY_PORTS="${COMFY_PORTS:-${UI_PORT} 8188 8189}"
 
 # Comfy template source (read-only source tree)
 COMFY_ROOT="${COMFY_ROOT:-$PROJECT_ROOT/ComfyUI}"
@@ -26,7 +25,6 @@ COMFY_SYNC_VENV="${COMFY_SYNC_VENV:-0}"          # 1 => rebuild isolated venvs o
 
 CONFIGURE_COMFY_PATHS="${CONFIGURE_COMFY_PATHS:-1}"
 COMFY_WAIT_SEC="${COMFY_WAIT_SEC:-120}"
-WEB_WAIT_SEC="${WEB_WAIT_SEC:-60}"
 GO_WAIT_SEC="${GO_WAIT_SEC:-60}"
 
 LOG_DIR="${LOG_DIR:-$PROJECT_ROOT/logs}"
@@ -177,9 +175,6 @@ BASE_VENV_DIR="$(cd "$(dirname "$PYTHON_BIN")/.." && pwd)"
 IFS=' ' read -r -a comfy_ports <<<"$COMFY_PORTS"
 (( ${#comfy_ports[@]} >= 1 )) || die "COMFY_PORTS is empty"
 
-# Default: web uses first comfy backend
-WEB_COMFY_URL="${WEB_COMFY_URL:-http://127.0.0.1:${comfy_ports[0]}}"
-
 # Default: go uses all comfy backends in COMFY_PORTS
 if [[ -z "${GO_COMFY_URLS:-}" ]]; then
   urls=()
@@ -195,31 +190,31 @@ if [[ -z "$GO_WORKERS" ]] || ! [[ "$GO_WORKERS" =~ ^[0-9]+$ ]] || (( GO_WORKERS 
 fi
 I2V_TRIM_HEAD_SEC="${I2V_TRIM_HEAD_SEC:-${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}}"
 
-echo "[1/7] stopping old processes..."
+echo "[1/6] stopping old processes..."
 kill_by_pattern "[p]ython.*local_generation_gateway.py"
 kill_by_pattern "[g]o run .*go_gateway"
 kill_by_pattern "[g]o_gateway"
 for p in "${comfy_ports[@]}"; do
   kill_by_pattern "[m]ain.py --listen .*--port ${p}"
 done
-kill_by_port "$WEB_PORT"
+kill_by_port "$UI_PORT"
 kill_by_port "$GO_PORT"
 for p in "${comfy_ports[@]}"; do
   kill_by_port "$p"
 done
 
 if [[ "$COMFY_ISOLATED" == "1" ]]; then
-  echo "[2/7] preparing isolated Comfy instances..."
+  echo "[2/6] preparing isolated Comfy instances..."
   mkdir -p "$ISOLATED_ROOT"
   for p in "${comfy_ports[@]}"; do
     prepare_comfy_instance "$p"
   done
 else
-  echo "[2/7] isolated mode disabled (legacy shared Comfy root)"
+  echo "[2/6] isolated mode disabled (legacy shared Comfy root)"
 fi
 
 if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
-  echo "[3/7] configuring Comfy model paths..."
+  echo "[3/6] configuring Comfy model paths..."
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
     for p in "${comfy_ports[@]}"; do
       "$PYTHON_BIN" "$PROJECT_ROOT/scripts/configure_comfy_paths.py" \
@@ -232,10 +227,10 @@ if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
       --comfy-root "$COMFY_ROOT"
   fi
 else
-  echo "[3/7] skip model path configure"
+  echo "[3/6] skip model path configure"
 fi
 
-echo "[4/7] starting ComfyUI backends..."
+echo "[4/6] starting ComfyUI backends..."
 for p in "${comfy_ports[@]}"; do
   log_file="$LOG_DIR/comfy_${p}_${timestamp}.log"
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
@@ -268,7 +263,7 @@ for p in "${comfy_ports[@]}"; do
   fi
 done
 
-echo "[5/7] waiting ComfyUI health..."
+echo "[5/6] waiting ComfyUI health..."
 for p in "${comfy_ports[@]}"; do
   wait_http_ok "http://127.0.0.1:${p}/system_stats" "$COMFY_WAIT_SEC" "comfy:${p}" || {
     tail -n 120 "$LOG_DIR/comfy_${p}_${timestamp}.log" || true
@@ -276,18 +271,7 @@ for p in "${comfy_ports[@]}"; do
   }
 done
 
-echo "[6/7] starting web gateway (single comfy)..."
-web_log="$LOG_DIR/web_${timestamp}.log"
-nohup env HOST="$HOST" PORT="$WEB_PORT" COMFY_URL="$WEB_COMFY_URL" \
-  I2V_TRIM_HEAD_SEC="$I2V_TRIM_HEAD_SEC" \
-  "$PYTHON_BIN" -u "$PROJECT_ROOT/local_generation_gateway.py" >"$web_log" 2>&1 &
-echo $! > "$RUN_DIR/web.pid"
-wait_http_ok "http://127.0.0.1:${WEB_PORT}/healthz" "$WEB_WAIT_SEC" "web" || {
-  tail -n 120 "$web_log" || true
-  die "web gateway boot failed"
-}
-
-echo "[7/7] starting go gateway (multi comfy load-balance)..."
+echo "[6/6] starting go gateway (multi comfy load-balance)..."
 # Generated media lives on the mounted file-storage volume (/root/autodl-fs).
 # Gateway writes `images/` and `videos/` directly under this path — no extra
 # `outputs/` wrapping — so the FS root maps cleanly to URL `/outputs/`.
@@ -307,9 +291,8 @@ wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" |
 
 echo ""
 echo "[ok] all services started"
-echo "Web UI:      http://127.0.0.1:${WEB_PORT}/web/"
+echo "ComfyUI UI:  http://127.0.0.1:${comfy_ports[0]}/"
 echo "Go Health:   http://127.0.0.1:${GO_PORT}/healthz"
-echo "Web->Comfy:  ${WEB_COMFY_URL}"
 echo "Go->Comfys:  ${GO_COMFY_URLS}"
 echo "Go Workers:  ${GO_WORKERS}"
 echo "Isolated:    ${COMFY_ISOLATED} (${ISOLATED_ROOT})"
