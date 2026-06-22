@@ -7,7 +7,7 @@ cd "$PROJECT_ROOT"
 UI_PORT="${UI_PORT:-6006}"
 GO_PORT="${GO_PORT:-6008}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
-COMFY_PORTS="${COMFY_PORTS:-${UI_PORT} 8188 8189}"
+COMFY_PORTS="${COMFY_PORTS:-8188 8189}"
 
 # Comfy template source (read-only source tree)
 COMFY_ROOT="${COMFY_ROOT:-$PROJECT_ROOT/ComfyUI}"
@@ -172,8 +172,13 @@ BASE_VENV_DIR="$(cd "$(dirname "$PYTHON_BIN")/.." && pwd)"
 [[ -x "$BASE_VENV_DIR/bin/python" ]] || die "Base venv invalid: $BASE_VENV_DIR/bin/python"
 
 # Parse comfy ports
-IFS=' ' read -r -a comfy_ports <<<"$COMFY_PORTS"
+IFS=' ' read -r -a configured_comfy_ports <<<"$COMFY_PORTS"
+comfy_ports=("$UI_PORT")
+for p in "${configured_comfy_ports[@]}"; do
+  [[ -n "$p" && "$p" != "$UI_PORT" ]] && comfy_ports+=("$p")
+done
 (( ${#comfy_ports[@]} >= 1 )) || die "COMFY_PORTS is empty"
+[[ "$UI_PORT" != "$GO_PORT" ]] || die "UI_PORT and GO_PORT must be different"
 
 # Default: go uses all comfy backends in COMFY_PORTS
 if [[ -z "${GO_COMFY_URLS:-}" ]]; then
