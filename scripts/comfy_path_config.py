@@ -28,6 +28,7 @@ def build_managed_block(config_name: str, models_root: Path) -> str:
         "    pulid: pulid",
         "    embeddings: embeddings",
         "    upscale_models: upscale_models",
+        "    latent_upscale_models: latent_upscale_models",
         "    model_patches: model_patches",
     ]
     return "\n".join(lines)
