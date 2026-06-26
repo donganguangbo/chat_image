@@ -188,11 +188,8 @@ if [[ "$GO_PORT" == "$GO_COMFY_PORT" || "$GO_PORT" == "$UI_COMFY_PORT" ]]; then
   die "GO_PORT must be different from both ComfyUI ports"
 fi
 
-echo "[1/5] stopping old go_gateway, simple web, and ComfyUI processes..."
-kill_by_pattern "simple web" "[p]ython.*local_generation_gateway.py"
-kill_by_pattern "simple web" "[u]vicorn.*local_generation_gateway"
-kill_by_pattern "go gateway" "[g]o run .*go_gateway"
-kill_by_pattern "go gateway" "[g]o_gateway"
+echo "[1/5] stopping old go_gateway and ComfyUI processes..."
+kill_by_pattern "go gateway" "[g]o run ."
 kill_by_pattern "comfyui" "[p]ython.*main.py.*--listen"
 kill_by_pattern "comfyui" "[p]ython.*ComfyUI.*main.py"
 
@@ -202,7 +199,7 @@ done
 
 if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
   echo "[2/5] configuring ComfyUI model paths..."
-  "$PYTHON_BIN" "$PROJECT_ROOT/scripts/configure_comfy_paths.py" \
+  bash "$PROJECT_ROOT/scripts/configure_comfy_paths.sh" \
     --models-root "$PROJECT_ROOT/models" \
     --comfy-root "$COMFY_ROOT"
 else
@@ -218,13 +215,13 @@ go_log="$LOG_DIR/go_gateway_${timestamp}.log"
 go_comfy_url="http://127.0.0.1:${GO_COMFY_PORT}"
 nohup env \
   LISTEN_ADDR=":${GO_PORT}" \
-  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/go_gateway/configs/workflows" \
-  SERVICE_CONFIG_FILE="$PROJECT_ROOT/go_gateway/configs/service.yaml" \
+  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/configs/workflows" \
+  SERVICE_CONFIG_FILE="$PROJECT_ROOT/configs/service.yaml" \
   OUTPUT_DIR="$PROJECT_ROOT/outputs" \
   COMFY_URL="$go_comfy_url" \
   GO_WORKERS="$GO_WORKERS" \
   GO_GATEWAY_I2V_TRIM_HEAD_SEC="${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}" \
-  bash -lc "cd \"$PROJECT_ROOT/go_gateway\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
+  bash -lc "cd \"$PROJECT_ROOT\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
 echo $! > "$RUN_DIR/go_gateway.pid"
 
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {

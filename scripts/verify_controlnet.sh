@@ -149,7 +149,7 @@ if [[ $FAIL_COUNT -eq 0 ]]; then
   echo "ControlNet Union compatibility. Any incompatibility will surface"
   echo "there with a full stack trace in the go_gateway / ComfyUI logs."
   echo ""
-  echo "  1. Switch default_workflows.image_edit in go_gateway/configs/service.yaml"
+  echo "  1. Switch default_workflows.image_edit in configs/service.yaml"
   echo "     to inpaint_zimage_lock_red_pose_cn"
   echo "  2. Restart: bash scripts/start_multi_stack.sh"
   echo "  3. POST /api/v1/generate/edit with your test prompt + input_image"

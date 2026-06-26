@@ -22,19 +22,18 @@ Default download destination is:
 ## 2) Manual step-by-step
 
 ```bash
-bash /Volumes/kk/work/openclaw/chat_image/scripts/install_model_deps.sh
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile all --comfy-root /path/to/ComfyUI
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/verify_models.py --profile all --models-root /Volumes/kk/work/openclaw/chat_image/models
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile all --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/verify_models.sh --profile all --models-root /Volumes/kk/work/openclaw/chat_image/models
 ```
 
 ## 3) Optional subsets
 
 ```bash
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile image --comfy-root /path/to/ComfyUI
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile video --comfy-root /path/to/ComfyUI
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile t2v --comfy-root /path/to/ComfyUI
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile i2v --comfy-root /path/to/ComfyUI
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile zimage --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile image --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile video --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile t2v --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile i2v --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile zimage --comfy-root /path/to/ComfyUI
 ```
 
 Or one-shot Z-Image:
@@ -75,7 +74,7 @@ cp -f /Volumes/kk/work/openclaw/chat_image/bundles/zimage_type_assets/workflows_
 Use custom destination if needed:
 
 ```bash
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile all --models-root /data/chat_image/models --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile all --models-root /data/chat_image/models --comfy-root /path/to/ComfyUI
 ```
 
 ## 4) Hugging Face token
@@ -83,16 +82,16 @@ python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profil
 Some FLUX repositories are gated. Before download:
 
 1. Use your browser to accept model terms on corresponding Hugging Face pages.
-2. Login locally:
+2. Export your token (the downloader reads `HF_TOKEN` / `HUGGINGFACE_HUB_TOKEN`):
 
 ```bash
-huggingface-cli login
+export HF_TOKEN=hf_xxx
 ```
 
 Or pass token directly:
 
 ```bash
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profile all --token hf_xxx --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/download_models.sh --profile all --token hf_xxx --comfy-root /path/to/ComfyUI
 ```
 
 ## 5) Only regenerate ComfyUI path config
@@ -100,5 +99,5 @@ python3 /Volumes/kk/work/openclaw/chat_image/scripts/download_models.py --profil
 If models are already copied (for example after packing this project to a server), run:
 
 ```bash
-python3 /Volumes/kk/work/openclaw/chat_image/scripts/configure_comfy_paths.py --models-root /Volumes/kk/work/openclaw/chat_image/models --comfy-root /path/to/ComfyUI
+bash /Volumes/kk/work/openclaw/chat_image/scripts/configure_comfy_paths.sh --models-root /Volumes/kk/work/openclaw/chat_image/models --comfy-root /path/to/ComfyUI
 ```

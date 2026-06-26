@@ -196,9 +196,7 @@ fi
 I2V_TRIM_HEAD_SEC="${I2V_TRIM_HEAD_SEC:-${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}}"
 
 echo "[1/6] stopping old processes..."
-kill_by_pattern "[p]ython.*local_generation_gateway.py"
-kill_by_pattern "[g]o run .*go_gateway"
-kill_by_pattern "[g]o_gateway"
+kill_by_pattern "[g]o run ."
 for p in "${comfy_ports[@]}"; do
   kill_by_pattern "[m]ain.py --listen .*--port ${p}"
 done
@@ -222,12 +220,12 @@ if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
   echo "[3/6] configuring Comfy model paths..."
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
     for p in "${comfy_ports[@]}"; do
-      "$PYTHON_BIN" "$PROJECT_ROOT/scripts/configure_comfy_paths.py" \
+      bash "$PROJECT_ROOT/scripts/configure_comfy_paths.sh" \
         --models-root "$PROJECT_ROOT/models" \
         --comfy-root "${COMFY_APP_ROOTS[$p]}"
     done
   else
-    "$PYTHON_BIN" "$PROJECT_ROOT/scripts/configure_comfy_paths.py" \
+    bash "$PROJECT_ROOT/scripts/configure_comfy_paths.sh" \
       --models-root "$PROJECT_ROOT/models" \
       --comfy-root "$COMFY_ROOT"
   fi
@@ -282,12 +280,12 @@ echo "[6/6] starting go gateway (multi comfy load-balance)..."
 # `outputs/` wrapping — so the FS root maps cleanly to URL `/outputs/`.
 go_log="$LOG_DIR/go_gateway_${timestamp}.log"
 nohup env LISTEN_ADDR=":${GO_PORT}" \
-  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/go_gateway/configs/workflows" \
+  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/configs/workflows" \
   OUTPUT_DIR="/root/autodl-fs" \
   COMFY_URLS="$GO_COMFY_URLS" \
   GO_WORKERS="$GO_WORKERS" \
   GO_GATEWAY_I2V_TRIM_HEAD_SEC="$I2V_TRIM_HEAD_SEC" \
-  bash -lc "cd \"$PROJECT_ROOT/go_gateway\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
+  bash -lc "cd \"$PROJECT_ROOT\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
 echo $! > "$RUN_DIR/go_gateway.pid"
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {
   tail -n 120 "$go_log" || true

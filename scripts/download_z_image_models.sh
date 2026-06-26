@@ -3,9 +3,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-bash "${SCRIPT_DIR}/install_model_deps.sh"
-python3 "${SCRIPT_DIR}/download_models.py" --profile zimage "$@"
+bash "${SCRIPT_DIR}/download_models.sh" --profile zimage "$@"
 
 echo ""
 echo "Verifying..."
-python3 "${SCRIPT_DIR}/verify_models.py" --profile zimage "$@"
+bash "${SCRIPT_DIR}/verify_models.sh" --profile zimage "$@"

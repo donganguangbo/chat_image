@@ -4,7 +4,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-GATEWAY_PORT="${GATEWAY_PORT:-6006}"
+GO_PORT="${GO_PORT:-6008}"
 COMFY_PORT="${COMFY_PORT:-8188}"
 RUN_DIR="${RUN_DIR:-$PROJECT_ROOT/.run}"
 
@@ -68,17 +68,16 @@ kill_by_port() {
 mkdir -p "$RUN_DIR"
 
 echo "[1/3] stop by pid files..."
-kill_by_pidfile "$RUN_DIR/gateway.pid" "gateway"
+kill_by_pidfile "$RUN_DIR/go_gateway.pid" "go gateway"
 kill_by_pidfile "$RUN_DIR/comfyui.pid" "comfyui"
 
 echo "[2/3] stop by process pattern..."
-kill_by_pattern "gateway" "[p]ython.*local_generation_gateway.py"
-kill_by_pattern "gateway" "[u]vicorn.*local_generation_gateway"
+kill_by_pattern "go gateway" "[g]o run ."
 kill_by_pattern "comfyui" "[p]ython.*main.py.*--port[ =]${COMFY_PORT}"
 kill_by_pattern "comfyui" "[p]ython.*main.py.*--listen"
 
 echo "[3/3] stop by occupied ports..."
-kill_by_port "$GATEWAY_PORT" "gateway"
+kill_by_port "$GO_PORT" "go gateway"
 kill_by_port "$COMFY_PORT" "comfyui"
 
 echo "[ok] services stopped (if running)."
