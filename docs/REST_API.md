@@ -30,6 +30,7 @@ curl -s http://127.0.0.1:8090/healthz
 | `GET` | `/v1/videos/{id}` | 查询视频任务 |
 | `GET` | `/v1/videos/{id}/content` | 读取已完成视频内容，返回 `307` 到输出 URL |
 | `DELETE` | `/v1/videos/{id}` | 取消排队中的视频任务 |
+| `POST` | `/v1/chat/completions` | 文字对话，转发到本地 Qwen 服务 |
 
 ### 文生图
 
@@ -106,6 +107,21 @@ curl -s http://127.0.0.1:8090/v1/videos \
 }
 ```
 
+### 文字对话
+
+```bash
+curl -s http://127.0.0.1:8090/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "写一句中文欢迎语"}
+    ],
+    "temperature": 0.7
+  }'
+```
+
+请求会转发到 `service.yaml` 的 `text.base_url`，路径固定为 `/v1/chat/completions`。请求未传 `model` 时使用 `text.model`。
+
 ## 工作流映射
 
 `app/configs/service.yaml` 的 `default_workflows` 决定 V1 路由落到哪个内部 workflow：
@@ -116,4 +132,8 @@ default_workflows:
   image_edit: your_edit_workflow
   text_to_video: your_t2v_workflow
   image_to_video: your_i2v_workflow
+
+text:
+  base_url: http://127.0.0.1:8000
+  model: qwen-local
 ```

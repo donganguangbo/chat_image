@@ -14,6 +14,7 @@ func Register(mux *http.ServeMux, srv *service.Server, outputDir string, storage
 	mux.HandleFunc("/v1/images/edits", v1.HandleImageEdit)
 	mux.HandleFunc("/v1/videos", v1.HandleVideoCreate)
 	mux.HandleFunc("/v1/videos/", v1.HandleVideoByID)
+	mux.HandleFunc("/v1/chat/completions", v1.HandleChatCompletion)
 
 	if storageMode == service.StorageModeLocal {
 		mux.Handle("/outputs/", http.StripPrefix("/outputs/", http.FileServer(http.Dir(outputDir))))

@@ -78,6 +78,15 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	if v := env("S3_SECRET_KEY", ""); v != "" {
 		s3cfg.SecretKey = v
 	}
+	if v := env("TEXT_BASE_URL", ""); v != "" {
+		serviceCfg.Text.BaseURL = v
+	}
+	if v := env("TEXT_MODEL", ""); v != "" {
+		serviceCfg.Text.Model = v
+	}
+	if v := env("TEXT_API_KEY", ""); v != "" {
+		serviceCfg.Text.APIKey = v
+	}
 	var storage *ObjectStorage
 	if serviceCfg.StorageMode == StorageModeS3 {
 		var s3Enabled bool
@@ -97,6 +106,11 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 			log.Fatalf("mkdir outputs/videos failed: %v", err)
 		}
 		log.Printf("[storage] local output storage enabled")
+	}
+	if strings.TrimSpace(serviceCfg.Text.BaseURL) != "" {
+		log.Printf("[text] backend enabled (base_url=%s model=%s)", serviceCfg.Text.BaseURL, serviceCfg.Text.Model)
+	} else {
+		log.Printf("[text] backend disabled")
 	}
 
 	// One-shot outputs migration: MIGRATE_OUTPUTS=dry lists keys, =1 uploads, then

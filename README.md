@@ -22,6 +22,9 @@
 - `GO_WORKERS` (可选，默认等于 Comfy 后端数量)
 - `LISTEN_ADDR` (默认 `:8090`)
 - `OUTPUT_DIR` (默认 `./outputs`)
+- `TEXT_BASE_URL` (可选，覆盖 `service.yaml` 里的文字模型服务地址)
+- `TEXT_MODEL` (可选，覆盖默认文字模型名)
+- `TEXT_API_KEY` (可选，转发给文字模型服务的 Bearer token)
 
 ## 运行
 
@@ -49,6 +52,7 @@ go run .
 - `GET /v1/videos/{id}`（查询视频任务）
 - `GET /v1/videos/{id}/content`（读取已完成视频内容）
 - `DELETE /v1/videos/{id}`（取消排队中的视频任务）
+- `POST /v1/chat/completions`（文字对话，转发到本地 Qwen 服务）
 
 说明：这些路由到底落到哪个具体 workflow，由 `app/configs/service.yaml` 的
 `default_workflows` 决定。旧接口迁移见 `docs/API_MIGRATION.md`。
@@ -92,6 +96,21 @@ curl -s http://127.0.0.1:8090/v1/videos \
 
 ```bash
 curl -s http://127.0.0.1:8090/v1/videos/<video_id> | jq
+```
+
+### 文字对话示例
+
+本地 Qwen 服务需要暴露 `POST /v1/chat/completions`。网关会把请求转发过去；请求里不传 `model` 时使用 `app/configs/service.yaml` 的 `text.model`。
+
+```bash
+curl -s http://127.0.0.1:8090/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "写一句中文欢迎语"}
+    ],
+    "temperature": 0.7
+  }' | jq
 ```
 
 ## 输出文件
@@ -165,4 +184,8 @@ default_workflows:
   image_edit: your_edit_workflow
   text_to_video: your_t2v_workflow
   image_to_video: your_i2v_workflow
+
+text:
+  base_url: http://127.0.0.1:8000
+  model: qwen-local
 ```

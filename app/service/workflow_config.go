@@ -121,6 +121,7 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 	}
 	cfg.StorageMode = storageMode
 	cfg.S3 = fileCfg.S3
+	cfg.Text = fileCfg.Text
 
 	if len(workflows) == 0 {
 		return cfg, nil

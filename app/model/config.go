@@ -6,6 +6,7 @@ type ServiceConfig struct {
 	StorageMode           string                 `yaml:"storage_mode"`
 	DefaultWorkflows      CategoryWorkflowConfig `yaml:"default_workflows"`
 	S3                    S3FileConfig           `yaml:"s3"`
+	Text                  TextConfig             `yaml:"text"`
 }
 
 type S3FileConfig struct {
@@ -14,4 +15,10 @@ type S3FileConfig struct {
 	Bucket    string `yaml:"bucket"`
 	AccessKey string `yaml:"access_key"`
 	SecretKey string `yaml:"secret_key"`
+}
+
+type TextConfig struct {
+	BaseURL string `yaml:"base_url"`
+	Model   string `yaml:"model"`
+	APIKey  string `yaml:"api_key"`
 }
