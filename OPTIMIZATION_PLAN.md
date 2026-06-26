@@ -42,9 +42,10 @@
     - `materializeImageParam` 去掉 `cleanupPath` 并行变量，临时文件分支用 `defer os.Remove`（main.go:2765）
     - 手写 base64 兼容 → 依次试 `base64.RawStdEncoding` / `base64.RawURLEncoding`（**不要**只用 RawURLEncoding，会回退标准字母表无填充）（main.go:2883）
 
-## 暂不自动修（surface 大 / 承重，单独评估，不在本轮）
-- 输出大媒体内存多份拷贝（#18）+ ffmpeg 产物回读（#19）：需把 `UploadPrivate` 改 `io.Reader`、converter 返回路径、处理 .avif 直通分支，跨 storage.go + 测试，留作专门重构。
-- `cloneMap`/`cloneTask` 去 JSON round-trip（#22）：`cloneMap` 的深拷贝是 `applyImageEditNoSwapFallback` 承重逻辑，不能改浅拷贝；收益低风险高，暂留。
+## 后续补做（已完成）
+- **S3 明文密钥外置**：凭证改从 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 环境变量读取，`service.yaml` 不再存密钥，启动脚本透传。⚠️ 已泄露进 git 历史的那对 Linode 密钥仍需**轮换**。
+- **#18 输出内存多份拷贝 + #19 ffmpeg 产物回读**：转码器改为返回临时文件路径 + cleanup（不再 `os.ReadFile` 回内存）；`downloadOutputs` 用 `io.Copy` 落盘（跨盘安全，非 rename）、S3 从目标文件流式上传；`UploadPrivate` 改 `io.Reader`。注：`ViewFile` 仍把源文件读进内存，是固有成本，不在这两条范围内。
+- **#22 cloneTask 去 JSON round-trip**：`cloneTask` 改手写拷贝（值字段直接复制 + `Params` 深拷贝 + `Outputs` 切片头复制 + subscribers 置 nil）；`cloneMap` 保持 JSON 深拷贝不变（`applyImageEditNoSwapFallback` 承重）。
 
 ## 验收口径
 每批：`go build ./...` 干净；`go test ./...` 通过；`git diff` 只含本批意图内改动；关键点抽查

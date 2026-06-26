@@ -833,13 +833,14 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					continue
 				}
 
-				content, ext, err := prepareGeneratedOutputContent(kind, filename, content, generatedOutputConverters{
+				prepared, err := prepareGeneratedOutputContent(kind, filename, content, generatedOutputConverters{
 					imageToAVIF:   convertImageBytesToAVIF,
 					videoToAV1MP4: convertVideoBytesToAV1MP4,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("prepare output %s: %w", filename, err)
 				}
+				ext := prepared.ext
 				safeBase := sanitizeName(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
 				if safeBase == "" {
 					safeBase = "out"
@@ -857,24 +858,34 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					urlPrefix = "/outputs/videos/"
 				}
 				targetPath := filepath.Join(targetDir, targetName)
-				if err := os.WriteFile(targetPath, content, 0o644); err != nil {
-					return nil, fmt.Errorf("write output %s: %w", targetPath, err)
+				size, werr := writePreparedOutput(prepared, targetPath)
+				if prepared.cleanup != nil {
+					prepared.cleanup()
+				}
+				if werr != nil {
+					return nil, fmt.Errorf("write output %s: %w", targetPath, werr)
 				}
 				item := TaskOutput{
 					Kind:     kind,
 					Filename: targetName,
 					URL:      urlPrefix + targetName,
-					Size:     int64(len(content)),
+					Size:     size,
 				}
 				if s.storage != nil {
 					key := gatewayObjectKey(kind, targetName, now)
-					uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-					err := s.storage.UploadPrivate(uploadCtx, key, content, outputContentType(ext))
-					cancel()
-					if err != nil {
-						log.Printf("[storage] upload %s failed: %v", key, err)
+					// Stream the file we just wrote to S3 instead of re-buffering it.
+					if f, oerr := os.Open(targetPath); oerr != nil {
+						log.Printf("[storage] open %s for upload failed: %v", targetPath, oerr)
 					} else {
-						item.Key = key
+						uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+						uerr := s.storage.UploadPrivate(uploadCtx, key, f, outputContentType(ext))
+						cancel()
+						f.Close()
+						if uerr != nil {
+							log.Printf("[storage] upload %s failed: %v", key, uerr)
+						} else {
+							item.Key = key
+						}
 					}
 				}
 				out = append(out, item)
@@ -909,14 +920,26 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 	return out, nil
 }
 
-type generatedMediaConverter func(content []byte, sourceExt string) ([]byte, error)
+// generatedMediaConverter transcodes content and returns the path of the
+// result file plus a cleanup func (removes the temp dir). The result stays on
+// disk so it can be streamed rather than re-buffered in memory.
+type generatedMediaConverter func(content []byte, sourceExt string) (path string, cleanup func(), err error)
 
 type generatedOutputConverters struct {
 	imageToAVIF   generatedMediaConverter
 	videoToAV1MP4 generatedMediaConverter
 }
 
-func prepareGeneratedOutputContent(kind, filename string, content []byte, converters generatedOutputConverters) ([]byte, string, error) {
+// preparedOutput is either an on-disk converted file (path + cleanup) or
+// passthrough bytes (data). Exactly one of path/data is set.
+type preparedOutput struct {
+	ext     string
+	data    []byte // passthrough (e.g. already-AVIF, or non-image/video)
+	path    string // converted media on disk
+	cleanup func() // non-nil iff path != ""
+}
+
+func prepareGeneratedOutputContent(kind, filename string, content []byte, converters generatedOutputConverters) (preparedOutput, error) {
 	ext := strings.ToLower(filepath.Ext(filename))
 	if ext == "" {
 		ext = ".bin"
@@ -924,45 +947,76 @@ func prepareGeneratedOutputContent(kind, filename string, content []byte, conver
 	switch kind {
 	case "image":
 		if ext == ".avif" {
-			return content, ".avif", nil
+			return preparedOutput{ext: ".avif", data: content}, nil
 		}
 		if converters.imageToAVIF == nil {
-			return nil, "", errors.New("AVIF converter is not configured")
+			return preparedOutput{}, errors.New("AVIF converter is not configured")
 		}
-		converted, err := converters.imageToAVIF(content, ext)
+		path, cleanup, err := converters.imageToAVIF(content, ext)
 		if err != nil {
-			return nil, "", fmt.Errorf("convert generated image to AVIF: %w", err)
+			return preparedOutput{}, fmt.Errorf("convert generated image to AVIF: %w", err)
 		}
-		return converted, ".avif", nil
+		return preparedOutput{ext: ".avif", path: path, cleanup: cleanup}, nil
 	case "video":
 		if converters.videoToAV1MP4 == nil {
-			return nil, "", errors.New("AV1 video converter is not configured")
+			return preparedOutput{}, errors.New("AV1 video converter is not configured")
 		}
-		converted, err := converters.videoToAV1MP4(content, ext)
+		path, cleanup, err := converters.videoToAV1MP4(content, ext)
 		if err != nil {
-			return nil, "", fmt.Errorf("convert generated video to AV1 MP4: %w", err)
+			return preparedOutput{}, fmt.Errorf("convert generated video to AV1 MP4: %w", err)
 		}
-		return converted, ".mp4", nil
+		return preparedOutput{ext: ".mp4", path: path, cleanup: cleanup}, nil
 	default:
-		return content, ext, nil
+		return preparedOutput{ext: ext, data: content}, nil
 	}
 }
 
-func convertImageBytesToAVIF(content []byte, sourceExt string) ([]byte, error) {
+// writePreparedOutput writes p to targetPath and returns the bytes written. For
+// converted media it streams the temp file (io.Copy, not rename, so it works
+// across filesystems); for passthrough it writes the in-memory bytes.
+func writePreparedOutput(p preparedOutput, targetPath string) (int64, error) {
+	if p.path != "" {
+		src, err := os.Open(p.path)
+		if err != nil {
+			return 0, err
+		}
+		defer src.Close()
+		dst, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+		if err != nil {
+			return 0, err
+		}
+		n, err := io.Copy(dst, src)
+		if cerr := dst.Close(); err == nil {
+			err = cerr
+		}
+		return n, err
+	}
+	if err := os.WriteFile(targetPath, p.data, 0o644); err != nil {
+		return 0, err
+	}
+	return int64(len(p.data)), nil
+}
+
+// convertImageBytesToAVIF transcodes content to AVIF and returns the path of the
+// result file plus a cleanup func that removes its temp dir. On error it cleans
+// up itself and returns ("", nil, err). The output is left on disk (not read
+// back into memory) so the caller can stream it to its target / object storage.
+func convertImageBytesToAVIF(content []byte, sourceExt string) (string, func(), error) {
 	if len(content) == 0 {
-		return nil, errors.New("empty image content")
+		return "", nil, errors.New("empty image content")
 	}
 
 	tmpDir, err := os.MkdirTemp("", "go_gateway_avif_*")
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 
 	inputPath := filepath.Join(tmpDir, "input"+sanitizeMediaInputExt(sourceExt))
 	outputPath := filepath.Join(tmpDir, "output.avif")
 	if err := os.WriteFile(inputPath, content, 0o600); err != nil {
-		return nil, err
+		cleanup()
+		return "", nil, err
 	}
 
 	baseArgs := []string{
@@ -995,35 +1049,35 @@ func convertImageBytesToAVIF(content []byte, sourceExt string) ([]byte, error) {
 			continue
 		}
 
-		converted, err := os.ReadFile(outputPath)
-		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: read output: %v", attempt.name, err))
+		if fi, err := os.Stat(outputPath); err != nil || fi.Size() == 0 {
+			failures = append(failures, fmt.Sprintf("%s: produced empty/missing AVIF", attempt.name))
 			continue
 		}
-		if len(converted) == 0 {
-			failures = append(failures, fmt.Sprintf("%s: produced empty AVIF", attempt.name))
-			continue
-		}
-		return converted, nil
+		return outputPath, cleanup, nil
 	}
-	return nil, fmt.Errorf("ffmpeg AVIF conversion failed: %s", strings.Join(failures, "; "))
+	cleanup()
+	return "", nil, fmt.Errorf("ffmpeg AVIF conversion failed: %s", strings.Join(failures, "; "))
 }
 
-func convertVideoBytesToAV1MP4(content []byte, sourceExt string) ([]byte, error) {
+// convertVideoBytesToAV1MP4 mirrors convertImageBytesToAVIF: it returns the
+// output file path + cleanup func and leaves the encoded MP4 on disk rather than
+// reading it back into memory.
+func convertVideoBytesToAV1MP4(content []byte, sourceExt string) (string, func(), error) {
 	if len(content) == 0 {
-		return nil, errors.New("empty video content")
+		return "", nil, errors.New("empty video content")
 	}
 
 	tmpDir, err := os.MkdirTemp("", "go_gateway_av1_video_*")
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
-	defer func() { _ = os.RemoveAll(tmpDir) }()
+	cleanup := func() { _ = os.RemoveAll(tmpDir) }
 
 	inputPath := filepath.Join(tmpDir, "input"+sanitizeMediaInputExt(sourceExt))
 	outputPath := filepath.Join(tmpDir, "output.mp4")
 	if err := os.WriteFile(inputPath, content, 0o600); err != nil {
-		return nil, err
+		cleanup()
+		return "", nil, err
 	}
 
 	baseArgs := []string{
@@ -1057,18 +1111,14 @@ func convertVideoBytesToAV1MP4(content []byte, sourceExt string) ([]byte, error)
 			continue
 		}
 
-		converted, err := os.ReadFile(outputPath)
-		if err != nil {
-			failures = append(failures, fmt.Sprintf("%s: read output: %v", attempt.name, err))
+		if fi, err := os.Stat(outputPath); err != nil || fi.Size() == 0 {
+			failures = append(failures, fmt.Sprintf("%s: produced empty/missing MP4", attempt.name))
 			continue
 		}
-		if len(converted) == 0 {
-			failures = append(failures, fmt.Sprintf("%s: produced empty MP4", attempt.name))
-			continue
-		}
-		return converted, nil
+		return outputPath, cleanup, nil
 	}
-	return nil, fmt.Errorf("ffmpeg AV1 MP4 conversion failed: %s", strings.Join(failures, "; "))
+	cleanup()
+	return "", nil, fmt.Errorf("ffmpeg AV1 MP4 conversion failed: %s", strings.Join(failures, "; "))
 }
 
 func sanitizeMediaInputExt(ext string) string {
@@ -1944,10 +1994,15 @@ func cloneTask(t *Task) *Task {
 	if t == nil {
 		return nil
 	}
-	b, _ := json.Marshal(t)
-	var out Task
-	_ = json.Unmarshal(b, &out)
-	out.subscribers = nil
+	// Direct copy of the value fields; deep-copy only the mutable nested ones.
+	// Avoids the per-progress-tick JSON marshal/unmarshal round-trip.
+	out := *t
+	out.subscribers = nil // never hand out the live subscriber set
+	out.Params = cloneMap(t.Params)
+	if t.Outputs != nil {
+		// TaskOutput is all value types, so element copy is a deep copy.
+		out.Outputs = append([]TaskOutput(nil), t.Outputs...)
+	}
 	return &out
 }
 
@@ -3242,7 +3297,7 @@ func migrateOutputsToS3(ctx context.Context, storage *ObjectStorage, outputDir s
 				continue
 			}
 			ct := mime.TypeByExtension(strings.ToLower(filepath.Ext(name)))
-			if err := storage.UploadPrivate(ctx, key, content, ct); err != nil {
+			if err := storage.UploadPrivate(ctx, key, bytes.NewReader(content), ct); err != nil {
 				log.Printf("[migrate] upload %s failed: %v", key, err)
 				failed++
 				continue

@@ -13,101 +13,114 @@ import (
 	"testing"
 )
 
+// readPrepared returns the bytes of a preparedOutput, whether it is held in
+// memory (passthrough) or written to a temp file (converted).
+func readPrepared(t *testing.T, p preparedOutput) []byte {
+	t.Helper()
+	if p.path != "" {
+		b, err := os.ReadFile(p.path)
+		if err != nil {
+			t.Fatalf("read prepared path: %v", err)
+		}
+		return b
+	}
+	return p.data
+}
+
+// fileConverter returns a converter that writes out to a temp file and returns
+// its path, mimicking the real (streaming) converter contract.
+func fileConverter(t *testing.T, out []byte, wantContent []byte, wantExt string) generatedMediaConverter {
+	return func(got []byte, sourceExt string) (string, func(), error) {
+		if wantContent != nil && !bytes.Equal(got, wantContent) {
+			t.Fatalf("converter content = %q, want %q", got, wantContent)
+		}
+		if wantExt != "" && sourceExt != wantExt {
+			t.Fatalf("sourceExt = %q, want %q", sourceExt, wantExt)
+		}
+		dir := t.TempDir()
+		p := filepath.Join(dir, "out.bin")
+		if err := os.WriteFile(p, out, 0o600); err != nil {
+			t.Fatalf("write fake output: %v", err)
+		}
+		return p, func() {}, nil
+	}
+}
+
 func TestPrepareGeneratedOutputContentConvertsImageToAVIF(t *testing.T) {
 	original := []byte("png bytes")
 	converted := []byte("avif bytes")
-	called := false
 
-	content, ext, err := prepareGeneratedOutputContent("image", "sample.png", original, generatedOutputConverters{
-		imageToAVIF: func(got []byte, sourceExt string) ([]byte, error) {
-			called = true
-			if !bytes.Equal(got, original) {
-				t.Fatalf("converter content = %q, want %q", got, original)
-			}
-			if sourceExt != ".png" {
-				t.Fatalf("sourceExt = %q, want .png", sourceExt)
-			}
-			return converted, nil
-		},
+	prepared, err := prepareGeneratedOutputContent("image", "sample.png", original, generatedOutputConverters{
+		imageToAVIF: fileConverter(t, converted, original, ".png"),
 	})
 	if err != nil {
 		t.Fatalf("prepareGeneratedOutputContent: %v", err)
 	}
-	if !called {
-		t.Fatal("converter was not called")
+	if prepared.ext != ".avif" {
+		t.Fatalf("ext = %q, want .avif", prepared.ext)
 	}
-	if ext != ".avif" {
-		t.Fatalf("ext = %q, want .avif", ext)
+	if prepared.cleanup == nil {
+		t.Fatal("cleanup = nil, want non-nil for converted output")
 	}
-	if !bytes.Equal(content, converted) {
-		t.Fatalf("content = %q, want %q", content, converted)
+	if got := readPrepared(t, prepared); !bytes.Equal(got, converted) {
+		t.Fatalf("content = %q, want %q", got, converted)
 	}
 }
 
 func TestPrepareGeneratedOutputContentKeepsExistingAVIF(t *testing.T) {
 	original := []byte("already avif")
 
-	content, ext, err := prepareGeneratedOutputContent("image", "sample.avif", original, generatedOutputConverters{
-		imageToAVIF: func([]byte, string) ([]byte, error) {
+	prepared, err := prepareGeneratedOutputContent("image", "sample.avif", original, generatedOutputConverters{
+		imageToAVIF: func([]byte, string) (string, func(), error) {
 			t.Fatal("converter should not be called for existing AVIF")
-			return nil, nil
+			return "", nil, nil
 		},
 	})
 	if err != nil {
 		t.Fatalf("prepareGeneratedOutputContent: %v", err)
 	}
-	if ext != ".avif" {
-		t.Fatalf("ext = %q, want .avif", ext)
+	if prepared.ext != ".avif" {
+		t.Fatalf("ext = %q, want .avif", prepared.ext)
 	}
-	if !bytes.Equal(content, original) {
-		t.Fatalf("content = %q, want %q", content, original)
+	if prepared.path != "" {
+		t.Fatalf("path = %q, want empty (passthrough)", prepared.path)
+	}
+	if !bytes.Equal(prepared.data, original) {
+		t.Fatalf("data = %q, want %q", prepared.data, original)
 	}
 }
 
 func TestPrepareGeneratedOutputContentConvertsVideoToAV1MP4(t *testing.T) {
 	original := []byte("h264 mp4 bytes")
 	converted := []byte("av1 mp4 bytes")
-	called := false
 
-	content, ext, err := prepareGeneratedOutputContent(
+	prepared, err := prepareGeneratedOutputContent(
 		"video",
 		"clip.webm",
 		original,
 		generatedOutputConverters{
-			imageToAVIF: func([]byte, string) ([]byte, error) {
+			imageToAVIF: func([]byte, string) (string, func(), error) {
 				t.Fatal("image converter should not be called for video")
-				return nil, nil
+				return "", nil, nil
 			},
-			videoToAV1MP4: func(got []byte, sourceExt string) ([]byte, error) {
-				called = true
-				if !bytes.Equal(got, original) {
-					t.Fatalf("converter content = %q, want %q", got, original)
-				}
-				if sourceExt != ".webm" {
-					t.Fatalf("sourceExt = %q, want .webm", sourceExt)
-				}
-				return converted, nil
-			},
+			videoToAV1MP4: fileConverter(t, converted, original, ".webm"),
 		},
 	)
 	if err != nil {
 		t.Fatalf("prepareGeneratedOutputContent: %v", err)
 	}
-	if !called {
-		t.Fatal("converter was not called")
+	if prepared.ext != ".mp4" {
+		t.Fatalf("ext = %q, want .mp4", prepared.ext)
 	}
-	if ext != ".mp4" {
-		t.Fatalf("ext = %q, want .mp4", ext)
-	}
-	if !bytes.Equal(content, converted) {
-		t.Fatalf("content = %q, want %q", content, converted)
+	if got := readPrepared(t, prepared); !bytes.Equal(got, converted) {
+		t.Fatalf("content = %q, want %q", got, converted)
 	}
 }
 
 func TestPrepareGeneratedOutputContentReturnsConversionError(t *testing.T) {
-	_, _, err := prepareGeneratedOutputContent("image", "sample.png", []byte("bad image"), generatedOutputConverters{
-		imageToAVIF: func([]byte, string) ([]byte, error) {
-			return nil, errors.New("encoder failed")
+	_, err := prepareGeneratedOutputContent("image", "sample.png", []byte("bad image"), generatedOutputConverters{
+		imageToAVIF: func([]byte, string) (string, func(), error) {
+			return "", nil, errors.New("encoder failed")
 		},
 	})
 	if err == nil {
@@ -121,6 +134,40 @@ func TestPrepareGeneratedOutputContentReturnsConversionError(t *testing.T) {
 func TestOutputContentTypeUsesImageAVIF(t *testing.T) {
 	if got := outputContentType(".avif"); got != "image/avif" {
 		t.Fatalf("outputContentType(.avif) = %q, want image/avif", got)
+	}
+}
+
+func TestWritePreparedOutput(t *testing.T) {
+	dir := t.TempDir()
+
+	// passthrough (in-memory data)
+	target1 := filepath.Join(dir, "passthrough.bin")
+	n, err := writePreparedOutput(preparedOutput{data: []byte("hello")}, target1)
+	if err != nil {
+		t.Fatalf("writePreparedOutput(data): %v", err)
+	}
+	if n != 5 {
+		t.Fatalf("size = %d, want 5", n)
+	}
+	if got, _ := os.ReadFile(target1); string(got) != "hello" {
+		t.Fatalf("target content = %q, want hello", got)
+	}
+
+	// converted (streamed from a temp file)
+	src := filepath.Join(dir, "src.bin")
+	if err := os.WriteFile(src, []byte("world!!"), 0o600); err != nil {
+		t.Fatalf("seed src: %v", err)
+	}
+	target2 := filepath.Join(dir, "converted.bin")
+	n, err = writePreparedOutput(preparedOutput{path: src}, target2)
+	if err != nil {
+		t.Fatalf("writePreparedOutput(path): %v", err)
+	}
+	if n != 7 {
+		t.Fatalf("size = %d, want 7", n)
+	}
+	if got, _ := os.ReadFile(target2); string(got) != "world!!" {
+		t.Fatalf("target content = %q, want world!!", got)
 	}
 }
 
@@ -140,9 +187,14 @@ func TestConvertImageBytesToAVIFWithFFmpeg(t *testing.T) {
 		t.Fatalf("encode png: %v", err)
 	}
 
-	converted, err := convertImageBytesToAVIF(pngBytes.Bytes(), ".png")
+	path, cleanup, err := convertImageBytesToAVIF(pngBytes.Bytes(), ".png")
 	if err != nil {
 		t.Fatalf("convertImageBytesToAVIF: %v", err)
+	}
+	defer cleanup()
+	converted, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read converted: %v", err)
 	}
 	if !bytes.Contains(converted, []byte("ftypavif")) {
 		t.Fatalf("converted bytes do not look like AVIF: first bytes % x", converted[:min(len(converted), 16)])
@@ -178,9 +230,14 @@ func TestConvertVideoBytesToAV1MP4WithFFmpeg(t *testing.T) {
 		t.Fatalf("read source mp4: %v", err)
 	}
 
-	converted, err := convertVideoBytesToAV1MP4(source, ".mp4")
+	path, cleanup, err := convertVideoBytesToAV1MP4(source, ".mp4")
 	if err != nil {
 		t.Fatalf("convertVideoBytesToAV1MP4: %v", err)
+	}
+	defer cleanup()
+	converted, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read converted: %v", err)
 	}
 	if !bytes.Contains(converted, []byte("ftyp")) {
 		t.Fatalf("converted bytes do not look like MP4: first bytes % x", converted[:min(len(converted), 16)])

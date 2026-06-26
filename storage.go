@@ -1,10 +1,10 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -121,11 +121,13 @@ func gatewayObjectKey(kind, name string, now time.Time) string {
 // UploadPrivate stores body at key. The bucket is private by default and we send
 // NO x-amz-acl header — Linode rejects ACL headers on buckets with object ACLs
 // disabled (and the key may lack PutObjectAcl). Mirrors go-pay/bucket_test.go.
-func (o *ObjectStorage) UploadPrivate(ctx context.Context, key string, body []byte, contentType string) error {
+// body should be a seekable reader (e.g. *os.File or *bytes.Reader) so the SDK
+// can compute the payload length/signature without buffering it all in memory.
+func (o *ObjectStorage) UploadPrivate(ctx context.Context, key string, body io.Reader, contentType string) error {
 	in := &s3.PutObjectInput{
 		Bucket: aws.String(o.bucket),
 		Key:    aws.String(key),
-		Body:   bytes.NewReader(body),
+		Body:   body,
 	}
 	if contentType != "" {
 		in.ContentType = aws.String(contentType)
