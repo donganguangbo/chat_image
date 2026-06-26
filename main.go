@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -26,12 +27,26 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
-const darkBeast6T2IWorkflowID = "t2i_darkbeast6_simple_hybrid"
+var ErrQueueFull = errors.New("task queue is full")
+
+const (
+	darkBeast6T2IWorkflowID = "t2i_darkbeast6_simple_hybrid"
+	taskRetention           = time.Hour
+
+	// maxRequestBody caps the body size in withHMACAuth (which must buffer the
+	// whole body for HMAC verification).  The largest legal payload is an i2v
+	// request with two base64-encoded images (input_image_base64 +
+	// input_image_end_base64), each up to 50 MB decoded ≈ 67 MB base64,
+	// totalling ≈ 134 MB plus JSON framing.  160 MB is a comfortable ceiling
+	// while still bounding unlimited / multi-GB attack bodies.
+	maxRequestBody = 160 << 20 // 160 MB
+)
 
 type WorkflowConfig struct {
 	ID             string         `yaml:"id"`
@@ -396,12 +411,42 @@ func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, servic
 	for i := 0; i < workerCount; i++ {
 		go s.workerLoop(i + 1)
 	}
+	go s.taskCleanupLoop()
 	return s
+}
+
+func (s *Server) taskCleanupLoop() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
+		s.cleanupFinishedTasks()
+	}
+}
+
+func (s *Server) cleanupFinishedTasks() {
+	now := time.Now().UTC()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for id, t := range s.tasks {
+		switch t.Status {
+		case "completed", "failed", "cancelled":
+			if now.Sub(t.UpdatedAt) > taskRetention {
+				delete(s.tasks, id)
+			}
+		}
+	}
 }
 
 func (s *Server) workerLoop(_ int) {
 	for id := range s.queue {
-		s.executeTask(id)
+		func() {
+			defer func() {
+				if r := recover(); r != nil {
+					s.failTask(id, fmt.Errorf("worker panic: %v", r))
+				}
+			}()
+			s.executeTask(id)
+		}()
 	}
 }
 
@@ -461,12 +506,7 @@ func (s *Server) executeTask(taskID string) {
 		return
 	}
 
-	templateFormat := strings.TrimSpace(strings.ToLower(cfg.TemplateFormat))
-	if templateFormat == "" {
-		templateFormat = "auto"
-	}
-
-	if templateFormat == "ui" || (templateFormat == "auto" && isUIWorkflow(tpl)) {
+	if cfg.TemplateFormat == "ui" || (cfg.TemplateFormat == "auto" && isUIWorkflow(tpl)) {
 		s.updateTask(taskID, func(t *Task) {
 			t.Progress = 8
 			t.Message = "converting UI workflow"
@@ -666,11 +706,12 @@ func (s *Server) waitForPromptOutputs(
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 	started := time.Now()
+	var lastErr error
 
 	for {
 		select {
 		case <-ctx.Done():
-			return nil, fmt.Errorf("timeout waiting comfy history for prompt_id=%s", promptID)
+			return nil, fmt.Errorf("timeout waiting comfy history for prompt_id=%s (last poll error: %v)", promptID, lastErr)
 		case <-ticker.C:
 			history, err := comfy.GetHistory(promptID)
 			if err == nil {
@@ -684,6 +725,8 @@ func (s *Server) waitForPromptOutputs(
 					}
 					return outputs, nil
 				}
+			} else {
+				lastErr = err
 			}
 			elapsed := int(time.Since(started).Seconds())
 			p := progressBase + elapsed
@@ -815,14 +858,13 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				}
 				targetPath := filepath.Join(targetDir, targetName)
 				if err := os.WriteFile(targetPath, content, 0o644); err != nil {
-					continue
+					return nil, fmt.Errorf("write output %s: %w", targetPath, err)
 				}
-				stat, _ := os.Stat(targetPath)
 				item := TaskOutput{
 					Kind:     kind,
 					Filename: targetName,
 					URL:      urlPrefix + targetName,
-					Size:     ifSize(stat),
+					Size:     int64(len(content)),
 				}
 				if s.storage != nil {
 					key := gatewayObjectKey(kind, targetName, now)
@@ -1137,11 +1179,6 @@ func findHistoryEntry(history map[string]any, promptID string) map[string]any {
 	if v, ok := history[promptID].(map[string]any); ok {
 		return v
 	}
-	for _, v := range history {
-		if m, ok := v.(map[string]any); ok {
-			return m
-		}
-	}
 	return nil
 }
 
@@ -1208,13 +1245,6 @@ func extractComfyStatusMessagesError(rawMsgs any) string {
 	return ""
 }
 
-func ifSize(stat os.FileInfo) int64 {
-	if stat == nil {
-		return 0
-	}
-	return stat.Size()
-}
-
 func (s *Server) getWorkflow(id string) (WorkflowConfig, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -1254,7 +1284,7 @@ func (s *Server) createTask(req CreateTaskRequest) (*Task, error) {
 	}
 
 	if seed := getInt64(params["seed"], -1); seed < 0 {
-		params["seed"] = rand.Int63()
+		params["seed"] = rand.Int63n(1 << 53)
 	}
 	if _, ok := params["end_at_step_stage1"]; !ok {
 		stage1 := getInt(params["steps_stage1"], 1)
@@ -1291,7 +1321,14 @@ func (s *Server) createTask(req CreateTaskRequest) (*Task, error) {
 	s.mu.Unlock()
 	s.emit(task)
 
-	s.queue <- task.ID
+	select {
+	case s.queue <- task.ID:
+	default:
+		s.mu.Lock()
+		delete(s.tasks, task.ID)
+		s.mu.Unlock()
+		return nil, ErrQueueFull
+	}
 	return cloneTask(task), nil
 }
 
@@ -1302,12 +1339,6 @@ func (s *Server) getTask(id string) *Task {
 		return cloneTask(t)
 	}
 	return nil
-}
-
-func (s *Server) getTaskRaw(id string) *Task {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.tasks[id]
 }
 
 func (s *Server) listTasks() []*Task {
@@ -1485,7 +1516,11 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 		task, err := s.createTask(req)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			if errors.Is(err, ErrQueueFull) {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			} else {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
 			return
 		}
 		writeJSON(w, http.StatusCreated, task)
@@ -1564,7 +1599,11 @@ func (s *Server) handleGenerate(category string) http.HandlerFunc {
 
 		task, err := s.createTask(createReq)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			if errors.Is(err, ErrQueueFull) {
+				http.Error(w, err.Error(), http.StatusServiceUnavailable)
+			} else {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+			}
 			return
 		}
 		writeJSON(w, http.StatusCreated, task)
@@ -1680,13 +1719,37 @@ func (s *Server) handleTaskStream(w http.ResponseWriter, r *http.Request, id str
 		select {
 		case <-r.Context().Done():
 			return
-		case msg, ok := <-ch:
+		case _, ok := <-ch:
 			if !ok {
 				return
 			}
-			_, _ = fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", msg)
+			// Re-fetch authoritative snapshot instead of forwarding the
+			// (potentially stale or buffered-away) payload.  This means even
+			// if the 32-slot subscriber channel filled up and earlier events
+			// were dropped, the very next signal still delivers current state.
+			snapshot := s.getTask(id)
+			if snapshot == nil {
+				return
+			}
+			evt := TaskEvent{Event: "task_update", Task: snapshot}
+			b, _ := json.Marshal(evt)
+			_, _ = fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", b)
 			flusher.Flush()
+			if snapshot.Status == "completed" || snapshot.Status == "failed" || snapshot.Status == "cancelled" {
+				return
+			}
 		case <-heartbeat.C:
+			// On each heartbeat also re-fetch; if the task has already reached
+			// a terminal state (e.g. all channel signals were dropped) send the
+			// final event and close the stream rather than pinging forever.
+			snapshot := s.getTask(id)
+			if snapshot != nil && (snapshot.Status == "completed" || snapshot.Status == "failed" || snapshot.Status == "cancelled") {
+				evt := TaskEvent{Event: "task_update", Task: snapshot}
+				b, _ := json.Marshal(evt)
+				_, _ = fmt.Fprintf(w, "event: task_update\ndata: %s\n\n", b)
+				flusher.Flush()
+				return
+			}
 			_, _ = fmt.Fprint(w, ": ping\n\n")
 			flusher.Flush()
 		}
@@ -2157,9 +2220,9 @@ func applyLegacyLora(prompt map[string]any, params map[string]any, mode string) 
 			relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1, excludeClass)
 		}
 	} else {
-		relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 0, newNodeID, 0)
+		relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 0, newNodeID, 0, nil)
 		if !modelOnly {
-			relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1)
+			relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, baseNodeID, 1, newNodeID, 1, nil)
 		}
 	}
 	return nil
@@ -2314,7 +2377,7 @@ func applyMultiLoraI2V(prompt map[string]any, params map[string]any, loras []lor
 			currentSource = newNodeID
 		}
 		if currentSource != g.baseNodeID {
-			relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, g.baseNodeID, 0, currentSource, 0)
+			relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, g.baseNodeID, 0, currentSource, 0, nil)
 		}
 	}
 	return nil
@@ -2546,34 +2609,8 @@ func applyInpaintMultiDetail(prompt map[string]any, params map[string]any, refin
 		previousDetailerID = detailerID
 	}
 
-	relinkNodeInputSourceForNodeIDs(prompt, originalNodeIDs, "60", 0, previousDetailerID, 0)
+	relinkNodeInputSourceForNodeIDsExcludingClass(prompt, originalNodeIDs, "60", 0, previousDetailerID, 0, nil)
 	return nil
-}
-
-func relinkNodeInputSourceForNodeIDs(prompt map[string]any, nodeIDs []string, fromNodeID string, fromSlot int, toNodeID string, toSlot int) {
-	for _, nodeID := range nodeIDs {
-		rawNode, ok := prompt[nodeID]
-		if !ok {
-			continue
-		}
-		node, ok := rawNode.(map[string]any)
-		if !ok {
-			continue
-		}
-		inputs, ok := node["inputs"].(map[string]any)
-		if !ok {
-			continue
-		}
-		for inputName, rawInput := range inputs {
-			sourceID, sourceSlot, ok := parseNodeLink(rawInput)
-			if !ok {
-				continue
-			}
-			if sourceID == fromNodeID && sourceSlot == fromSlot {
-				inputs[inputName] = []any{toNodeID, toSlot}
-			}
-		}
-	}
 }
 
 func relinkNodeInputSourceForNodeIDsExcludingClass(
@@ -2737,24 +2774,52 @@ func sanitizeName(s string) string {
 	return s
 }
 
-func resolveExistingPath(input string) (string, bool) {
-	p := strings.TrimSpace(input)
-	if p == "" {
-		return "", false
-	}
-	if strings.HasPrefix(p, "~/") {
-		if home, err := os.UserHomeDir(); err == nil {
-			p = filepath.Join(home, strings.TrimPrefix(p, "~/"))
+// isBlockedIP returns true for loopback, private, link-local, and unspecified
+// addresses that must not be reachable from user-supplied URLs.
+func isBlockedIP(ip net.IP) bool {
+	return ip == nil ||
+		ip.IsLoopback() ||
+		ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() ||
+		ip.IsLinkLocalMulticast() ||
+		ip.IsUnspecified()
+}
+
+// safeHTTPClient is a package-level hardened client used for all outbound
+// image downloads. It blocks SSRF targets (cloud metadata, internal services)
+// by inspecting the already-resolved IP in DialContext's Control hook, and
+// re-validates redirect destinations.
+var safeHTTPClient = &http.Client{
+	Timeout: 60 * time.Second,
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+			Control: func(network, address string, _ syscall.RawConn) error {
+				host, _, err := net.SplitHostPort(address)
+				if err != nil {
+					return fmt.Errorf("ssrf-guard: cannot parse address %q: %w", address, err)
+				}
+				ip := net.ParseIP(host)
+				if isBlockedIP(ip) {
+					return fmt.Errorf("ssrf-guard: address %q is not allowed", address)
+				}
+				return nil
+			},
+		}).DialContext,
+	},
+	CheckRedirect: func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("ssrf-guard: too many redirects")
 		}
-	}
-	if stat, err := os.Stat(p); err == nil && !stat.IsDir() {
-		abs, aerr := filepath.Abs(p)
-		if aerr == nil {
-			return abs, true
+		host := req.URL.Hostname()
+		if ip := net.ParseIP(host); ip != nil {
+			if isBlockedIP(ip) {
+				return fmt.Errorf("ssrf-guard: redirect to %q is not allowed", host)
+			}
 		}
-		return p, true
-	}
-	return "", false
+		return nil
+	},
 }
 
 func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params map[string]any, key string) error {
@@ -2763,7 +2828,6 @@ func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params
 	rawBase64 := asString(params[key+"_base64"])
 
 	var localPath string
-	var cleanupPath string
 
 	switch {
 	case rawURL != "":
@@ -2772,27 +2836,20 @@ func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params
 			return err
 		}
 		localPath = p
-		cleanupPath = p
+		defer func() { _ = os.Remove(p) }()
 	case rawBase64 != "":
 		p, err := decodeBase64ImageToTemp(rawBase64)
 		if err != nil {
 			return err
 		}
 		localPath = p
-		cleanupPath = p
+		defer func() { _ = os.Remove(p) }()
 	case raw != "":
-		if p, ok := resolveExistingPath(raw); ok {
-			localPath = p
-		} else {
-			// Not a local path: keep original value for Comfy-side input resolution.
-			return nil
-		}
+		// Do not touch the local filesystem; keep original value for
+		// Comfy-side input resolution (Comfy resolves against its own input dir).
+		return nil
 	default:
 		return nil
-	}
-
-	if cleanupPath != "" {
-		defer func() { _ = os.Remove(cleanupPath) }()
 	}
 
 	s.updateTask(taskID, func(t *Task) {
@@ -2824,8 +2881,8 @@ func downloadImageFromURL(rawURL string) (string, error) {
 	}
 	req.Header.Set("User-Agent", "chat-image-go-gateway/1.0")
 
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
+	// Use the package-level hardened client (SSRF protection, redirect limits).
+	resp, err := safeHTTPClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -2854,6 +2911,9 @@ func downloadImageFromURL(rawURL string) (string, error) {
 	}
 	defer tmp.Close()
 	if _, err := tmp.Write(payload); err != nil {
+		// Fix 3: clean up orphan temp file on write failure.
+		tmp.Close()
+		os.Remove(tmp.Name())
 		return "", err
 	}
 	return tmp.Name(), nil
@@ -2882,13 +2942,14 @@ func decodeBase64ImageToTemp(raw string) (string, error) {
 
 	decoded, err := base64.StdEncoding.DecodeString(s)
 	if err != nil {
-		normalized := strings.ReplaceAll(strings.ReplaceAll(s, "-", "+"), "_", "/")
-		if m := len(normalized) % 4; m != 0 {
-			normalized += strings.Repeat("=", 4-m)
-		}
-		decoded, err = base64.StdEncoding.DecodeString(normalized)
-		if err != nil {
-			return "", fmt.Errorf("decode base64 image failed: %w", err)
+		stripped := strings.TrimRight(s, "=")
+		var err2 error
+		decoded, err2 = base64.RawStdEncoding.DecodeString(stripped)
+		if err2 != nil {
+			decoded, err2 = base64.RawURLEncoding.DecodeString(stripped)
+			if err2 != nil {
+				return "", fmt.Errorf("decode base64 image failed: %w", err)
+			}
 		}
 	}
 	if len(decoded) == 0 {
@@ -2905,41 +2966,29 @@ func decodeBase64ImageToTemp(raw string) (string, error) {
 	}
 	defer tmp.Close()
 	if _, err := tmp.Write(decoded); err != nil {
+		// Fix 3: clean up orphan temp file on write failure.
+		tmp.Close()
+		os.Remove(tmp.Name())
 		return "", err
 	}
 	return tmp.Name(), nil
 }
 
 func inferImageExt(contentType, path string, payload []byte) string {
-	switch strings.ToLower(strings.TrimSpace(contentType)) {
-	case "image/png":
-		return ".png"
-	case "image/jpeg", "image/jpg":
-		return ".jpg"
-	case "image/webp":
-		return ".webp"
-	case "image/gif":
-		return ".gif"
-	case "image/bmp":
-		return ".bmp"
-	case "image/avif":
-		return ".avif"
-	default:
-		if mediaType, _, err := mime.ParseMediaType(contentType); err == nil {
-			switch strings.ToLower(mediaType) {
-			case "image/png":
-				return ".png"
-			case "image/jpeg", "image/jpg":
-				return ".jpg"
-			case "image/webp":
-				return ".webp"
-			case "image/gif":
-				return ".gif"
-			case "image/bmp":
-				return ".bmp"
-			case "image/avif":
-				return ".avif"
-			}
+	if mediaType, _, err := mime.ParseMediaType(contentType); err == nil {
+		switch strings.ToLower(mediaType) {
+		case "image/png":
+			return ".png"
+		case "image/jpeg", "image/jpg":
+			return ".jpg"
+		case "image/webp":
+			return ".webp"
+		case "image/gif":
+			return ".gif"
+		case "image/bmp":
+			return ".bmp"
+		case "image/avif":
+			return ".avif"
 		}
 	}
 
@@ -3107,9 +3156,17 @@ func withHMACAuth(next http.Handler, secret string, nc *nonceCache) http.Handler
 		}
 
 		// Read body once; preserve it for the downstream handler.
+		// Wrap with MaxBytesReader before reading to prevent OOM on oversized
+		// bodies; HMAC requires the full body in memory.
 		var body []byte
 		if r.Body != nil {
-			body, _ = io.ReadAll(r.Body)
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+			var readErr error
+			body, readErr = io.ReadAll(r.Body)
+			if readErr != nil {
+				http.Error(w, "request body too large", http.StatusRequestEntityTooLarge)
+				return
+			}
 			r.Body = io.NopCloser(bytes.NewReader(body))
 		}
 
@@ -3313,7 +3370,12 @@ func main() {
 	log.Printf("hmac auth: enabled (window=%ds, /healthz and /outputs bypass)", hmacTimeWindowSec)
 	nonces := newNonceCache()
 	handler := withHMACAuth(withCORS(mux), gatewaySecret, nonces)
-	if err := http.ListenAndServe(listenAddr, handler); err != nil {
+	httpSrv := &http.Server{
+		Addr:              listenAddr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+	if err := httpSrv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
 }
