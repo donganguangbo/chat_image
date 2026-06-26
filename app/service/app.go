@@ -12,11 +12,11 @@ import (
 	"time"
 )
 
-func Run(registerRoutes func(*http.ServeMux, *Server, string)) {
+func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	rand.Seed(time.Now().UnixNano())
 
-	configDir := env("WORKFLOW_CONFIG_DIR", "./configs/workflows")
-	serviceConfigFile := env("SERVICE_CONFIG_FILE", "./configs/service.yaml")
+	configDir := env("WORKFLOW_CONFIG_DIR", "./app/configs/workflows")
+	serviceConfigFile := env("SERVICE_CONFIG_FILE", "./app/configs/service.yaml")
 	comfyURLs := parseComfyURLs()
 	listenAddr := env("LISTEN_ADDR", ":8090")
 	outputDir := env("OUTPUT_DIR", "./outputs")
@@ -32,12 +32,6 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string)) {
 	absConfigDir, _ := filepath.Abs(configDir)
 	absServiceConfigFile, _ := filepath.Abs(serviceConfigFile)
 	absOutputDir, _ := filepath.Abs(outputDir)
-	if err := os.MkdirAll(filepath.Join(absOutputDir, "images"), 0o755); err != nil {
-		log.Fatalf("mkdir outputs/images failed: %v", err)
-	}
-	if err := os.MkdirAll(filepath.Join(absOutputDir, "videos"), 0o755); err != nil {
-		log.Fatalf("mkdir outputs/videos failed: %v", err)
-	}
 
 	workflows, err := loadWorkflows(absConfigDir)
 	if err != nil {
@@ -84,14 +78,25 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string)) {
 	if v := env("S3_SECRET_KEY", ""); v != "" {
 		s3cfg.SecretKey = v
 	}
-	storage, s3Enabled, err := NewObjectStorageFromConfig(s3cfg)
-	if err != nil {
-		log.Fatalf("object storage misconfigured: %v", err)
-	}
-	if s3Enabled {
-		log.Printf("[storage] Linode object storage enabled (bucket=%s)", serviceCfg.S3.Bucket)
+	var storage *ObjectStorage
+	if serviceCfg.StorageMode == StorageModeS3 {
+		var s3Enabled bool
+		storage, s3Enabled, err = NewObjectStorageFromConfig(s3cfg)
+		if err != nil {
+			log.Fatalf("object storage misconfigured: %v", err)
+		}
+		if !s3Enabled || storage == nil {
+			log.Fatal("storage_mode=s3 requires complete s3 config")
+		}
+		log.Printf("[storage] Linode object storage enabled (bucket=%s)", s3cfg.Bucket)
 	} else {
-		log.Printf("[storage] object storage disabled (s3.bucket unset in service.yaml); writing to local disk only")
+		if err := os.MkdirAll(filepath.Join(absOutputDir, "images"), 0o755); err != nil {
+			log.Fatalf("mkdir outputs/images failed: %v", err)
+		}
+		if err := os.MkdirAll(filepath.Join(absOutputDir, "videos"), 0o755); err != nil {
+			log.Fatalf("mkdir outputs/videos failed: %v", err)
+		}
+		log.Printf("[storage] local output storage enabled")
 	}
 
 	// One-shot outputs migration: MIGRATE_OUTPUTS=dry lists keys, =1 uploads, then
@@ -99,8 +104,8 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string)) {
 	// no disk writes, no port bind. Keys mirror the chat-side backfill, so a later
 	// DB-ref backfill finds the objects already present and only rewrites refs.
 	if mode := strings.TrimSpace(env("MIGRATE_OUTPUTS", "")); mode != "" {
-		if !s3Enabled || storage == nil {
-			log.Fatal("MIGRATE_OUTPUTS set but object storage is disabled; configure s3 in service.yaml")
+		if serviceCfg.StorageMode != StorageModeS3 || storage == nil {
+			log.Fatal("MIGRATE_OUTPUTS requires storage_mode=s3 and complete s3 config")
 		}
 		dry := strings.EqualFold(mode, "dry")
 		log.Printf("[migrate] starting outputs migration (dir=%s dry=%v)", absOutputDir, dry)
@@ -113,14 +118,18 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string)) {
 	srv := NewServer(workflows, comfyPool, serviceCfg, workerCount, absOutputDir, storage)
 
 	mux := http.NewServeMux()
-	registerRoutes(mux, srv, absOutputDir)
+	registerRoutes(mux, srv, absOutputDir, serviceCfg.StorageMode)
 
 	log.Printf("go gateway listening on %s", listenAddr)
 	log.Printf("comfy backends: %s", strings.Join(comfyPool.URLs(), ", "))
 	log.Printf("go workers: %d", workerCount)
 	log.Printf("config dir: %s", absConfigDir)
 	log.Printf("service config: %s", absServiceConfigFile)
-	log.Printf("output dir: %s", absOutputDir)
+	if serviceCfg.StorageMode == StorageModeLocal {
+		log.Printf("output dir: %s", absOutputDir)
+	} else {
+		log.Printf("output dir: disabled for final files (storage_mode=s3 uses temporary files)")
+	}
 	log.Printf("hmac auth: enabled (window=%ds, /healthz and /outputs bypass)", hmacTimeWindowSec)
 	nonces := newNonceCache()
 	handler := withHMACAuth(withCORS(mux), gatewaySecret, nonces)

@@ -1,10 +1,17 @@
 package service
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"sync"
 	"time"
 )
+
+type objectStorage interface {
+	UploadPrivate(context.Context, string, io.Reader, string) error
+	PresignGetObject(context.Context, string, time.Duration) (string, error)
+}
 
 type Server struct {
 	mu        sync.RWMutex
@@ -16,10 +23,10 @@ type Server struct {
 	service     ServiceConfig
 	workerCount int
 	outputDir   string
-	storage     *ObjectStorage
+	storage     objectStorage
 }
 
-func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, service ServiceConfig, workerCount int, outputDir string, storage *ObjectStorage) *Server {
+func NewServer(workflows map[string]WorkflowConfig, comfyPool *ComfyPool, service ServiceConfig, workerCount int, outputDir string, storage objectStorage) *Server {
 	if workerCount <= 0 {
 		workerCount = 1
 	}

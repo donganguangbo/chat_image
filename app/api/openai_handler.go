@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"chat_image/service"
+	"chat_image/app/service"
 )
 
 func (h *OpenAIHandler) HandleImageGeneration(w http.ResponseWriter, r *http.Request) {

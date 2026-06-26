@@ -1,6 +1,6 @@
 package service
 
-import "chat_image/storage"
+import "chat_image/app/storage"
 
 type ObjectStorage = storage.ObjectStorage
 

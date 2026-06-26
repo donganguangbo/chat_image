@@ -6,17 +6,17 @@
 - 用户只传 `prompt` + `width/height`（以及少量可选参数）
 - 异步任务队列
 - SSE 流式进度
-- 自动下载 ComfyUI 输出到 `outputs/images` / `outputs/videos`
+- 输出存储必须在配置文件里显式选择 `local` 或 `s3`
 
 ## 目录
 
 - `main.go`: 网关服务
-- `configs/workflows/*.yaml`: 每个工作流的参数配置
+- `app/configs/workflows/*.yaml`: 每个工作流的参数配置
 
 ## 环境变量
 
-- `WORKFLOW_CONFIG_DIR` (默认 `./configs/workflows`)
-- `SERVICE_CONFIG_FILE` (默认 `./configs/service.yaml`)
+- `WORKFLOW_CONFIG_DIR` (默认 `./app/configs/workflows`)
+- `SERVICE_CONFIG_FILE` (默认 `./app/configs/service.yaml`)
 - `COMFY_URL` (可选，单地址或作为主地址)
 - `COMFY_URLS` (可选，多地址，逗号分隔；Go 网关会轮询负载均衡)
 - `GO_WORKERS` (可选，默认等于 Comfy 后端数量)
@@ -50,8 +50,8 @@ go run .
 - `GET /v1/videos/{id}/content`（读取已完成视频内容）
 - `DELETE /v1/videos/{id}`（取消排队中的视频任务）
 
-说明：这些路由到底落到哪个具体 workflow，由 `configs/service.yaml` 的
-`default_workflows` 决定。旧接口迁移见 `API_MIGRATION.md`。
+说明：这些路由到底落到哪个具体 workflow，由 `app/configs/service.yaml` 的
+`default_workflows` 决定。旧接口迁移见 `docs/API_MIGRATION.md`。
 
 ### 创建任务示例（文生图）
 
@@ -102,7 +102,9 @@ curl -s http://127.0.0.1:8090/v1/videos/<video_id> | jq
 curl -I http://127.0.0.1:8090/v1/videos/<video_id>/content
 ```
 
-底层输出文件仍由网关保存在：
+`storage_mode: s3` 时，生成文件必须上传到 S3/Linode，返回签名 URL；上传或签名失败则任务失败。
+
+`storage_mode: local` 时，底层输出文件由网关保存在：
 
 - `/outputs/images/<filename>`
 - `/outputs/videos/<filename>`
@@ -146,11 +148,12 @@ defaults:
 
 ### service.yaml（类别默认工作流）
 
-当前仓库默认配置（见 `configs/service.yaml`）：
+当前仓库默认配置（见 `app/configs/service.yaml`）：
 
 ```yaml
 expose_workflow_catalog: false
 expose_raw_task_create: false
+storage_mode: s3
 default_workflows: {}
 ```
 

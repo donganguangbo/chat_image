@@ -1,7 +1,7 @@
 package api
 
 import (
-	"chat_image/service"
+	"chat_image/app/service"
 )
 
 const maxRequestBody = 160 << 20

@@ -3,6 +3,7 @@ package model
 type ServiceConfig struct {
 	ExposeWorkflowCatalog bool                   `yaml:"expose_workflow_catalog"`
 	ExposeRawTaskCreate   bool                   `yaml:"expose_raw_task_create"`
+	StorageMode           string                 `yaml:"storage_mode"`
 	DefaultWorkflows      CategoryWorkflowConfig `yaml:"default_workflows"`
 	S3                    S3FileConfig           `yaml:"s3"`
 }

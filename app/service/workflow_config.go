@@ -81,6 +81,7 @@ func defaultServiceConfig() ServiceConfig {
 	return ServiceConfig{
 		ExposeWorkflowCatalog: false,
 		ExposeRawTaskCreate:   false,
+		StorageMode:           "",
 		DefaultWorkflows:      CategoryWorkflowConfig{},
 	}
 }
@@ -90,7 +91,7 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 	raw, err := os.ReadFile(configPath)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return cfg, nil
+			return cfg, fmt.Errorf("service config not found: %s", configPath)
 		}
 		return cfg, err
 	}
@@ -114,6 +115,11 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 	}
 	cfg.ExposeWorkflowCatalog = fileCfg.ExposeWorkflowCatalog
 	cfg.ExposeRawTaskCreate = fileCfg.ExposeRawTaskCreate
+	storageMode, err := NormalizeStorageMode(fileCfg.StorageMode)
+	if err != nil {
+		return cfg, err
+	}
+	cfg.StorageMode = storageMode
 	cfg.S3 = fileCfg.S3
 
 	if len(workflows) == 0 {

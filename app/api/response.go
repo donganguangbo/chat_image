@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"chat_image/service"
+	"chat_image/app/service"
 )
 
 func openAIResponseFromTask(task *service.Task, object string) OpenAITaskResponse {

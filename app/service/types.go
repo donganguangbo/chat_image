@@ -1,6 +1,6 @@
 package service
 
-import "chat_image/model"
+import "chat_image/app/model"
 
 type WorkflowConfig = model.WorkflowConfig
 type InputBinding = model.InputBinding

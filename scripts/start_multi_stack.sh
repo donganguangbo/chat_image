@@ -323,12 +323,10 @@ for p in "${comfy_ports[@]}"; do
 done
 
 echo "[6/6] starting go gateway (multi comfy load-balance)..."
-# Generated media lives on the mounted file-storage volume (/root/autodl-fs).
-# Gateway writes `images/` and `videos/` directly under this path — no extra
-# `outputs/` wrapping — so the FS root maps cleanly to URL `/outputs/`.
 go_log="$LOG_DIR/go_gateway_${timestamp}.log"
 nohup env LISTEN_ADDR=":${GO_PORT}" \
-  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/configs/workflows" \
+  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/app/configs/workflows" \
+  SERVICE_CONFIG_FILE="$PROJECT_ROOT/app/configs/service.yaml" \
   OUTPUT_DIR="/root/autodl-fs" \
   S3_ACCESS_KEY="${S3_ACCESS_KEY:-}" \
   S3_SECRET_KEY="${S3_SECRET_KEY:-}" \

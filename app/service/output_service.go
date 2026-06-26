@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 )
+
+const outputURLTTL = 24 * time.Hour
 
 func isMissingImageEditAfterError(err error) bool {
 	if err == nil {
@@ -45,6 +46,13 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 	if !ok {
 		return nil, errors.New("comfy history has no outputs")
 	}
+	storageMode, err := NormalizeStorageMode(s.service.StorageMode)
+	if err != nil {
+		return nil, err
+	}
+	if storageMode == StorageModeS3 && s.storage == nil {
+		return nil, errors.New("storage_mode=s3 requires object storage")
+	}
 	afterNodeSet := map[string]struct{}{}
 	for _, id := range imageEditAfterNodeIDs {
 		id = strings.TrimSpace(id)
@@ -55,11 +63,21 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 
 	imagesDir := filepath.Join(s.outputDir, "images")
 	videosDir := filepath.Join(s.outputDir, "videos")
-	if err := os.MkdirAll(imagesDir, 0o755); err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(videosDir, 0o755); err != nil {
-		return nil, err
+	tempDir := ""
+	if storageMode == StorageModeS3 {
+		var err error
+		tempDir, err = os.MkdirTemp("", "chat-image-output-*")
+		if err != nil {
+			return nil, err
+		}
+		defer os.RemoveAll(tempDir)
+	} else {
+		if err := os.MkdirAll(imagesDir, 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.MkdirAll(videosDir, 0o755); err != nil {
+			return nil, err
+		}
 	}
 
 	var out []TaskOutput
@@ -126,6 +144,10 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					targetDir = videosDir
 					urlPrefix = "/outputs/videos/"
 				}
+				if storageMode == StorageModeS3 {
+					targetDir = tempDir
+					urlPrefix = ""
+				}
 				targetPath := filepath.Join(targetDir, targetName)
 				size, werr := writePreparedOutput(prepared, targetPath)
 				if prepared.cleanup != nil {
@@ -140,22 +162,29 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					URL:      urlPrefix + targetName,
 					Size:     size,
 				}
-				if s.storage != nil {
+				if storageMode == StorageModeS3 {
 					key := gatewayObjectKey(kind, targetName, now)
-					// Stream the file we just wrote to S3 instead of re-buffering it.
-					if f, oerr := os.Open(targetPath); oerr != nil {
-						log.Printf("[storage] open %s for upload failed: %v", targetPath, oerr)
-					} else {
-						uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-						uerr := s.storage.UploadPrivate(uploadCtx, key, f, outputContentType(ext))
-						cancel()
-						f.Close()
-						if uerr != nil {
-							log.Printf("[storage] upload %s failed: %v", key, uerr)
-						} else {
-							item.Key = key
-						}
+					f, oerr := os.Open(targetPath)
+					if oerr != nil {
+						return nil, fmt.Errorf("open output %s for upload: %w", targetPath, oerr)
 					}
+					uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					uerr := s.storage.UploadPrivate(uploadCtx, key, f, outputContentType(ext))
+					cancel()
+					if cerr := f.Close(); uerr == nil {
+						uerr = cerr
+					}
+					if uerr != nil {
+						return nil, fmt.Errorf("upload output %s: %w", key, uerr)
+					}
+					urlCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+					url, perr := s.storage.PresignGetObject(urlCtx, key, outputURLTTL)
+					cancel()
+					if perr != nil {
+						return nil, perr
+					}
+					item.Key = key
+					item.URL = url
 				}
 				out = append(out, item)
 			}

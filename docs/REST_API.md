@@ -108,7 +108,7 @@ curl -s http://127.0.0.1:8090/v1/videos \
 
 ## 工作流映射
 
-`configs/service.yaml` 的 `default_workflows` 决定 OpenAI 路由落到哪个内部 workflow：
+`app/configs/service.yaml` 的 `default_workflows` 决定 OpenAI 路由落到哪个内部 workflow：
 
 ```yaml
 default_workflows:

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"chat_image/api"
-	"chat_image/service"
+	"chat_image/app/api"
+	"chat_image/app/service"
 )
 
 func main() {

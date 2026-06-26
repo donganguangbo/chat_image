@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"chat_image/model"
+	"chat_image/app/model"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -23,8 +23,9 @@ import (
 // a custom endpoint, and request-checksum opt-out (Linode rejects the SDK's
 // default aws-chunked checksums).
 type ObjectStorage struct {
-	client *s3.Client
-	bucket string
+	client  *s3.Client
+	presign *s3.PresignClient
+	bucket  string
 }
 
 type storageConfig struct {
@@ -36,8 +37,7 @@ type storageConfig struct {
 }
 
 // validateStorageConfig trims the five settings and decides whether object
-// storage is enabled. ok=false with no error means bucket is empty (disabled →
-// disk-only); an error means bucket is set but a companion value is missing.
+// storage can be built. ok=false with no error means no bucket was configured.
 func validateStorageConfig(endpoint, region, bucket, accessKey, secretKey string) (storageConfig, bool, error) {
 	c := storageConfig{
 		endpoint:  strings.TrimSpace(endpoint),
@@ -80,12 +80,11 @@ func buildObjectStorage(cfg storageConfig) (*ObjectStorage, error) {
 		o.RequestChecksumCalculation = aws.RequestChecksumCalculationWhenRequired
 		o.ResponseChecksumValidation = aws.ResponseChecksumValidationWhenRequired
 	})
-	return &ObjectStorage{client: client, bucket: cfg.bucket}, nil
+	return &ObjectStorage{client: client, presign: s3.NewPresignClient(client), bucket: cfg.bucket}, nil
 }
 
 // NewObjectStorageFromConfig builds an ObjectStorage from the service.yaml `s3:`
-// section. Returns (nil, false, nil) when the bucket is unset (disabled →
-// disk-only).
+// section. Returns (nil, false, nil) when the bucket is unset.
 func NewObjectStorageFromConfig(c model.S3FileConfig) (*ObjectStorage, bool, error) {
 	cfg, ok, err := validateStorageConfig(c.Endpoint, c.Region, c.Bucket, c.AccessKey, c.SecretKey)
 	if err != nil || !ok {
@@ -129,6 +128,22 @@ func (o *ObjectStorage) UploadPrivate(ctx context.Context, key string, body io.R
 		return fmt.Errorf("upload %s to %s: %w", key, o.bucket, err)
 	}
 	return nil
+}
+
+func (o *ObjectStorage) PresignGetObject(ctx context.Context, key string, ttl time.Duration) (string, error) {
+	if ttl <= 0 {
+		ttl = 24 * time.Hour
+	}
+	out, err := o.presign.PresignGetObject(ctx, &s3.GetObjectInput{
+		Bucket: aws.String(o.bucket),
+		Key:    aws.String(key),
+	}, func(opts *s3.PresignOptions) {
+		opts.Expires = ttl
+	})
+	if err != nil {
+		return "", fmt.Errorf("presign %s from %s: %w", key, o.bucket, err)
+	}
+	return out.URL, nil
 }
 
 // Exists reports whether key is already present in the bucket. A 404 (NotFound)

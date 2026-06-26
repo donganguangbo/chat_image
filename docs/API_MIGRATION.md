@@ -173,7 +173,7 @@ curl -s http://127.0.0.1:8090/v1/images/edits \
 
 ## 配置不变
 
-`configs/service.yaml` 仍控制 OpenAI 路由落到哪个内部 workflow：
+`app/configs/service.yaml` 仍控制 OpenAI 路由落到哪个内部 workflow：
 
 ```yaml
 default_workflows:

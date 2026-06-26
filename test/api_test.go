@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"chat_image/api"
-	"chat_image/model"
-	"chat_image/service"
+	"chat_image/app/api"
+	"chat_image/app/model"
+	"chat_image/app/service"
 )
 
 func newTestOpenAIServer() *service.Server {
@@ -39,7 +39,7 @@ func newTestOpenAIServer() *service.Server {
 func performOpenAIRequest(t *testing.T, s *service.Server, method, path, body, contentType string) *httptest.ResponseRecorder {
 	t.Helper()
 	mux := http.NewServeMux()
-	api.Register(mux, s, t.TempDir())
+	api.Register(mux, s, t.TempDir(), service.StorageModeLocal)
 
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if contentType != "" {
