@@ -33,8 +33,10 @@ node_modules/
 .claude/settings.local.json
 
 # Go
-go_gateway/go.sum.bak
+go.sum.bak
 *.exe
+# compiled gateway binary (module name) from `go build .`
+/chat_image
 
 # ===== OS / Editor =====
 .DS_Store

@@ -1,6 +1,6 @@
 id: t2v_default
 name: Wan T2V Default
-template: ../../../workflows/t2v.json
+template: ../../workflows/t2v.json
 template_format: ui
 mode: text_to_video
 output_kind: video

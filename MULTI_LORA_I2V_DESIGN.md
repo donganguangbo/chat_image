@@ -40,7 +40,7 @@
 
 ## 3. 改动范围(Gateway 侧)
 
-改动全部落在 `go_gateway/` 目录,workflow JSON 不改,不影响已有 image_edit / t2i 行为。
+改动全部落在 仓库根 目录,workflow JSON 不改,不影响已有 image_edit / t2i 行为。
 
 ### 3.1 打开 i2v 的 LoRA 调用开关
 
@@ -257,8 +257,8 @@ Content-Type: application/json
 
 ## 9. 相关文件
 
-- `go_gateway/main.go`:`applyOptionalImageEditLora` (line 1715),调用点 line 499
-- `go_gateway/configs/workflows/i2v_wan_remix_single.yaml`:需加 `lora_stage_node_ids`
+- `main.go`:`applyOptionalImageEditLora` (line 1715),调用点 line 499
+- `configs/workflows/i2v_wan_remix_single.yaml`:需加 `lora_stage_node_ids`
 - `workflows/i2v_wan_remix_single.json`:UNETLoader 节点 `279` / `280`(不改 JSON,只在 YAML 声明)
 
 ---

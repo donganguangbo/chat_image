@@ -1,6 +1,6 @@
 id: inpaint_zimage_lock
 name: Z-Image Lock Inpaint
-template: ../../../workflows/inpaint_zimage_lock.json
+template: ../../workflows/inpaint_zimage_lock.json
 template_format: api
 mode: image_edit
 output_kind: image

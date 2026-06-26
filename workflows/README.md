@@ -1,6 +1,6 @@
 # Workflow Templates
 
-This directory stores ComfyUI API JSON templates used by `local_generation_gateway.py`.
+This directory stores ComfyUI API JSON templates used by the Go gateway (referenced from `configs/workflows/*.yaml`).
 
 ## Placeholder Syntax
 

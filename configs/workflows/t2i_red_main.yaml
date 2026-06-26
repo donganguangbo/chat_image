@@ -1,6 +1,6 @@
 id: t2i_red_main
 name: Z-Image RED T2I (Main)
-template: ../../../workflows/t2i_zimage_darkbeast_red.json
+template: ../../workflows/t2i_zimage_darkbeast_red.json
 template_format: api
 mode: t2i
 output_kind: image

@@ -1,6 +1,6 @@
 # Go Workflow Gateway
 
-一个独立的 Go REST 网关（不改现有 `local_generation_gateway.py`），支持：
+本仓库的唯一服务：一个 Go REST 网关，对接 ComfyUI，支持：
 
 - 每个工作流一个 YAML 参数配置
 - 用户只传 `prompt` + `width/height`（以及少量可选参数）
@@ -21,12 +21,12 @@
 - `COMFY_URLS` (可选，多地址，逗号分隔；Go 网关会轮询负载均衡)
 - `GO_WORKERS` (可选，默认等于 Comfy 后端数量)
 - `LISTEN_ADDR` (默认 `:8090`)
-- `OUTPUT_DIR` (默认 `../outputs`)
+- `OUTPUT_DIR` (默认 `./outputs`)
 
 ## 运行
 
 ```bash
-cd /Volumes/kk/work/openclaw/chat_image/go_gateway
+cd /Volumes/kk/work/openclaw/chat_image
 
 go mod tidy
 go run .
@@ -162,7 +162,7 @@ curl -I http://127.0.0.1:8090/outputs/images/<filename>
 ```yaml
 id: t2i_normal
 name: Z-Image Normal T2I
-template: ../../../workflows/t2i_zimage_darkbeast.json
+template: ../../workflows/t2i_zimage_darkbeast.json
 template_format: api
 mode: t2i
 output_kind: image
@@ -193,7 +193,7 @@ defaults:
 
 ### service.yaml（类别默认工作流）
 
-当前仓库默认配置（见 `go_gateway/configs/service.yaml`）：
+当前仓库默认配置（见 `configs/service.yaml`）：
 
 ```yaml
 expose_workflow_catalog: false

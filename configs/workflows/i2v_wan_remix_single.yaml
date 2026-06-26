@@ -1,6 +1,6 @@
-id: i2v_wan_remix_single_v30
-name: Wan Remix I2V v3.0 (Single Image)
-template: ../../../workflows/i2v_wan_remix_single_v30.json
+id: i2v_wan_remix_single
+name: Wan Remix I2V (Single Image)
+template: ../../workflows/i2v_wan_remix_single.json
 template_format: api
 mode: i2v
 output_kind: video

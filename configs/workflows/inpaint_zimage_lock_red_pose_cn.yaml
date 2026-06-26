@@ -1,6 +1,6 @@
 id: inpaint_zimage_lock_red_pose_cn
 name: Z-Image Lock Inpaint (RED Pose + ControlNet Hard Constraint)
-template: ../../../workflows/inpaint_zimage_lock_red_pose_cn.json
+template: ../../workflows/inpaint_zimage_lock_red_pose_cn.json
 template_format: api
 mode: image_edit
 output_kind: image
@@ -45,7 +45,7 @@ defaults:
   # Loaded via ModelPatchLoader + ZImageFunControlnet (NOT ControlNetLoader).
   # File must be present in $PROJECT_ROOT/models/model_patches/ and exposed to
   # ComfyUI through extra_model_paths.yaml's model_patches mapping (added by
-  # scripts/comfy_path_config.py).
+  # scripts/configure_comfy_paths.sh).
   controlnet_name: Z-Image-Turbo-Fun-Controlnet-Union-2.1-2602-8steps.safetensors
   controlnet_strength: 0.75
   # ReActor face swap (preserve identity from input_image)

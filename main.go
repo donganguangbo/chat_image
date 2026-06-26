@@ -3215,7 +3215,7 @@ func main() {
 	serviceConfigFile := env("SERVICE_CONFIG_FILE", "./configs/service.yaml")
 	comfyURLs := parseComfyURLs()
 	listenAddr := env("LISTEN_ADDR", ":8090")
-	outputDir := env("OUTPUT_DIR", "../outputs")
+	outputDir := env("OUTPUT_DIR", "./outputs")
 
 	// HMAC shared secret is required. Without it every request is rejected as
 	// unauthorized — no silent fall-through to an unprotected gateway. Generate one

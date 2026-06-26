@@ -1,4 +1,4 @@
-module chat_image/go_gateway
+module chat_image
 
 go 1.25
 

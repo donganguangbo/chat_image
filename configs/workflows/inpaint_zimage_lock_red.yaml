@@ -1,6 +1,6 @@
 id: inpaint_zimage_lock_red
 name: Z-Image Lock Inpaint (RED Main Preswap)
-template: ../../../workflows/inpaint_zimage_lock_red.json
+template: ../../workflows/inpaint_zimage_lock_red.json
 template_format: api
 mode: image_edit
 output_kind: image

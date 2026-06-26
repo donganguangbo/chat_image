@@ -159,7 +159,7 @@ curl -I http://127.0.0.1:8090/outputs/images/<filename>
 
 ## 5. 默认工作流映射（配置）
 
-文件：`go_gateway/configs/service.yaml`
+文件：`configs/service.yaml`
 
 ```yaml
 expose_workflow_catalog: false

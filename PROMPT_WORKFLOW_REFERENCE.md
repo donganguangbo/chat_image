@@ -213,7 +213,7 @@ Pass B（最终渲染）：
 
 **方式 A：临时切默认（推荐，上线流程一致）**
 
-编辑 `go_gateway/configs/service.yaml`：
+编辑 `configs/service.yaml`：
 ```yaml
 default_workflows:
   image_edit: inpaint_zimage_lock_red_pose_cn   # 从原 inpaint_zimage_lock_red_pose 改过来
@@ -299,7 +299,7 @@ curl -X POST http://127.0.0.1:8090/api/v1/tasks \
 
 ### 9.7 切换为默认
 
-当 `_cn` 版本在你的典型 case 下表现稳定后，编辑 `go_gateway/configs/service.yaml`：
+当 `_cn` 版本在你的典型 case 下表现稳定后，编辑 `configs/service.yaml`：
 
 ```yaml
 default_workflows:

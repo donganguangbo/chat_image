@@ -1,6 +1,6 @@
 id: t2i_normal
 name: Z-Image Normal T2I
-template: ../../../workflows/t2i_zimage_darkbeast.json
+template: ../../workflows/t2i_zimage_darkbeast.json
 template_format: api
 mode: t2i
 output_kind: image
