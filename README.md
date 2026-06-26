@@ -41,113 +41,71 @@ go run .
 
 ## API
 
-### 黑盒类别接口（推荐）
+外部接口使用 OpenAI 兼容路由：
 
-```bash
-curl -s http://127.0.0.1:8090/api/v1/generate/categories | jq
-```
+- `POST /v1/images/generations`（文生图）
+- `POST /v1/images/edits`（图片编辑）
+- `POST /v1/videos`（文生视频；带 `input_reference` 时走图生视频）
+- `GET /v1/videos/{id}`（查询视频任务）
+- `GET /v1/videos/{id}/content`（读取已完成视频内容）
+- `DELETE /v1/videos/{id}`（取消排队中的视频任务）
 
-固定类别接口：
-
-- `POST /api/v1/generate/t2i`（文生图）
-- `POST /api/v1/generate/t2i-darkbeast6`（DarkBeast6 简易混合文生图）
-- `POST /api/v1/generate/edit`（编辑图，对应锁定生图）
-- `POST /api/v1/generate/t2v`（文生视频）
-- `POST /api/v1/generate/i2v`（图生视频）
-
-说明：`t2i` / `edit` / `t2v` / `i2v` 到底落到哪个具体 workflow，由
-`configs/service.yaml` 的 `default_workflows` 决定。`t2i-darkbeast6`
-固定使用 `t2i_darkbeast6_simple_hybrid`，不受默认映射影响。
+说明：这些路由到底落到哪个具体 workflow，由 `configs/service.yaml` 的
+`default_workflows` 决定。旧接口迁移见 `API_MIGRATION.md`。
 
 ### 创建任务示例（文生图）
 
 ```bash
-curl -s http://127.0.0.1:8090/api/v1/generate/t2i \
+curl -s http://127.0.0.1:8090/v1/images/generations \
   -H 'Content-Type: application/json' \
   -d '{
+    "model": "local-image",
     "prompt": "masterpiece, cinematic portrait, ultra detailed",
-    "negative_prompt": "lowres, blurry",
-    "width": 1024,
-    "height": 1024,
-    "params": {
-      "steps_stage1": 5,
-      "cfg_stage1": 1.5,
-      "steps_stage2": 20,
-      "cfg_stage2": 1.3
-    }
-  }' | jq
-```
-
-返回里有 `id`（任务 ID）。
-
-### 创建任务示例（DarkBeast6 简易混合文生图）
-
-```bash
-curl -s http://127.0.0.1:8090/api/v1/generate/t2i-darkbeast6 \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "prompt": "masterpiece, cinematic portrait, ultra detailed",
-    "width": 768,
-    "height": 1440,
+    "size": "1024x1024",
     "params": {
       "seed": -1
     }
   }' | jq
 ```
 
-默认参数：`steps_stage1=5`、`steps_stage2=15`、`cfg_stage1=1.0`、
-`cfg_stage2=1.0`、`denoise_stage2=0.75`、`upscale_by=1.25`。
+返回里有 `id`（内部任务 ID）和 `status`。
 
 ### 创建任务示例（图生视频）
 
 ```bash
-curl -s http://127.0.0.1:8090/api/v1/generate/i2v \
+curl -s http://127.0.0.1:8090/v1/videos \
   -H 'Content-Type: application/json' \
   -d '{
+    "model": "local-video",
     "prompt": "cinematic close-up, natural motion",
-    "width": 832,
-    "height": 480,
-    "params": {
-      "input_image_url": "https://example.com/first_frame.png",
-      "duration_sec": 4,
-      "fps": 8
+    "size": "832x480",
+    "seconds": 4,
+    "input_reference": {
+      "image_url": "https://example.com/first_frame.png"
     }
   }' | jq
 ```
 
-`input_image` 支持三种形式：
+`input_reference` 支持 `image`、`image_url`、`image_base64`。
 
-- 服务器本地路径（例如 `/root/.../a.png`）
-- 远程 URL（`input_image_url` / `input_image_end_url`）
-- Base64（`input_image_base64` / `input_image_end_base64`，支持 data URL）
-
-### 查询任务状态
+### 查询视频状态
 
 ```bash
-curl -s http://127.0.0.1:8090/api/v1/tasks/<task_id> | jq
+curl -s http://127.0.0.1:8090/v1/videos/<video_id> | jq
 ```
-
-### SSE 流式进度
-
-```bash
-curl -N http://127.0.0.1:8090/api/v1/tasks/<task_id>/stream
-```
-
-### 内部原始接口（默认关闭）
-
-- `GET /api/v1/workflows`
-- `POST /api/v1/tasks`
-
-是否开放由 `configs/service.yaml` 控制：
-
-- `expose_workflow_catalog`
-- `expose_raw_task_create`
 
 ## 输出文件
 
-完成后任务响应里会有：
+视频完成后可通过 OpenAI 兼容内容接口读取：
 
-- `outputs[].url` 如 `/outputs/images/xxx.png` 或 `/outputs/videos/xxx.mp4`
+```bash
+curl -I http://127.0.0.1:8090/v1/videos/<video_id>/content
+```
+
+底层输出文件仍由网关保存在：
+
+- `/outputs/images/<filename>`
+- `/outputs/videos/<filename>`
 
 可直接访问：
 
@@ -186,11 +144,6 @@ defaults:
 - `defaults`: 默认参数（可被请求里的 `params` 覆盖）
 - `bindings`: 可选，把参数强制写入指定 node/input（用于无占位符模板）
 
-当前仓库还提供了姿势优先配置：
-
-- `configs/workflows/t2i_red_pose.yaml`（LSP LoRA，model+clip 双分支）
-- `PROMPT_WORKFLOW_REFERENCE.md`（红潮 pose 链路提示词优化参考）
-
 ### service.yaml（类别默认工作流）
 
 当前仓库默认配置（见 `configs/service.yaml`）：
@@ -198,37 +151,15 @@ defaults:
 ```yaml
 expose_workflow_catalog: false
 expose_raw_task_create: false
-default_workflows:
-  text_to_image: t2i_red_pose
-  image_edit: inpaint_zimage_lock_red_pose
-  text_to_video: t2v_default
-  image_to_video: i2v_wan_remix_single
+default_workflows: {}
 ```
 
-如果你希望切回普通链路，可改成：
+挂载外部 workflow 配置后，按需填写：
 
 ```yaml
 default_workflows:
-  text_to_image: t2i_normal
-  image_edit: inpaint_zimage_lock
-  text_to_video: t2v_default
-  image_to_video: i2v_wan_remix_single
+  text_to_image: your_t2i_workflow
+  image_edit: your_edit_workflow
+  text_to_video: your_t2v_workflow
+  image_to_video: your_i2v_workflow
 ```
-
-如果你希望切回 red 主链（非 pose）可改成：
-
-```yaml
-default_workflows:
-  text_to_image: t2i_red_main
-  image_edit: inpaint_zimage_lock_red
-  text_to_video: t2v_default
-  image_to_video: i2v_wan_remix_single
-```
-
-## 图生视频补充
-
-`i2v_wan_remix_single` / `i2v_wan_remix_first_last` 已内置配置。
-
-- `input_image` / `input_image_end` 可传本地路径（存在则自动上传到 ComfyUI）
-- 也可直接传 ComfyUI input 目录里的文件名
-- 传了 `width/height` 时，会自动推导 `size_long=max(width,height)`（除非你在 `params.size_long` 手动指定）
