@@ -3318,7 +3318,26 @@ func main() {
 		log.Fatal("no comfy backends configured (set COMFY_URL or COMFY_URLS)")
 	}
 	workerCount := envInt("GO_WORKERS", len(comfyPool.URLs()))
-	storage, s3Enabled, err := NewObjectStorageFromConfig(serviceCfg.S3)
+	// S3 credentials come from the environment (S3_ACCESS_KEY / S3_SECRET_KEY),
+	// never from service.yaml, so secrets stay out of the repo. Endpoint/region/
+	// bucket live in service.yaml but env vars may override them too.
+	s3cfg := serviceCfg.S3
+	if v := env("S3_ENDPOINT", ""); v != "" {
+		s3cfg.Endpoint = v
+	}
+	if v := env("S3_REGION", ""); v != "" {
+		s3cfg.Region = v
+	}
+	if v := env("S3_BUCKET", ""); v != "" {
+		s3cfg.Bucket = v
+	}
+	if v := env("S3_ACCESS_KEY", ""); v != "" {
+		s3cfg.AccessKey = v
+	}
+	if v := env("S3_SECRET_KEY", ""); v != "" {
+		s3cfg.SecretKey = v
+	}
+	storage, s3Enabled, err := NewObjectStorageFromConfig(s3cfg)
 	if err != nil {
 		log.Fatalf("object storage misconfigured: %v", err)
 	}

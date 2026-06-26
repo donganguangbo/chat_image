@@ -218,6 +218,8 @@ nohup env \
   WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/configs/workflows" \
   SERVICE_CONFIG_FILE="$PROJECT_ROOT/configs/service.yaml" \
   OUTPUT_DIR="$PROJECT_ROOT/outputs" \
+  S3_ACCESS_KEY="${S3_ACCESS_KEY:-}" \
+  S3_SECRET_KEY="${S3_SECRET_KEY:-}" \
   COMFY_URL="$go_comfy_url" \
   GO_WORKERS="$GO_WORKERS" \
   GO_GATEWAY_I2V_TRIM_HEAD_SEC="${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}" \
