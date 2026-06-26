@@ -1,11 +1,7 @@
 expose_workflow_catalog: false
 expose_raw_task_create: false
 
-default_workflows:
-  text_to_image: t2i_red_pose
-  image_edit: inpaint_zimage_lock_red_pose
-  text_to_video: t2v_default
-  image_to_video: i2v_wan_remix_single_v30
+default_workflows: {}
 
 s3:
   endpoint: us-ord-10.linodeobjects.com

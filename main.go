@@ -1809,6 +1809,9 @@ func (s *Server) handleTaskStream(w http.ResponseWriter, r *http.Request, id str
 func loadWorkflows(configDir string) (map[string]WorkflowConfig, error) {
 	entries, err := os.ReadDir(configDir)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return map[string]WorkflowConfig{}, nil
+		}
 		return nil, err
 	}
 	out := map[string]WorkflowConfig{}
@@ -1865,7 +1868,7 @@ func loadWorkflows(configDir string) (map[string]WorkflowConfig, error) {
 		out[cfg.ID] = cfg
 	}
 	if len(out) == 0 {
-		return nil, fmt.Errorf("no workflow yaml found under %s", configDir)
+		return out, nil
 	}
 	return out, nil
 }
@@ -1874,12 +1877,7 @@ func defaultServiceConfig() ServiceConfig {
 	return ServiceConfig{
 		ExposeWorkflowCatalog: false,
 		ExposeRawTaskCreate:   false,
-		DefaultWorkflows: CategoryWorkflowConfig{
-			TextToImage:  "t2i_normal",
-			ImageEdit:    "inpaint_zimage_lock",
-			TextToVideo:  "t2v_default",
-			ImageToVideo: "i2v_wan_remix_single",
-		},
+		DefaultWorkflows:      CategoryWorkflowConfig{},
 	}
 }
 
@@ -1913,6 +1911,10 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 	cfg.ExposeWorkflowCatalog = fileCfg.ExposeWorkflowCatalog
 	cfg.ExposeRawTaskCreate = fileCfg.ExposeRawTaskCreate
 	cfg.S3 = fileCfg.S3
+
+	if len(workflows) == 0 {
+		return cfg, nil
+	}
 
 	check := func(category, workflowID string) error {
 		if workflowID == "" {

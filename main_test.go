@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -46,4 +48,33 @@ func containsString(items []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func TestLoadWorkflowsAllowsMissingOrEmptyDir(t *testing.T) {
+	got, err := loadWorkflows(filepath.Join(t.TempDir(), "missing"))
+	if err != nil {
+		t.Fatalf("missing dir err = %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("missing dir workflows = %d, want 0", len(got))
+	}
+
+	got, err = loadWorkflows(t.TempDir())
+	if err != nil {
+		t.Fatalf("empty dir err = %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("empty dir workflows = %d, want 0", len(got))
+	}
+}
+
+func TestLoadServiceConfigAllowsNoWorkflows(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "service.yaml")
+	if err := os.WriteFile(path, []byte("default_workflows:\n  text_to_image: deleted\n"), 0o600); err != nil {
+		t.Fatalf("write service config: %v", err)
+	}
+
+	if _, err := loadServiceConfig(path, map[string]WorkflowConfig{}); err != nil {
+		t.Fatalf("loadServiceConfig with no workflows err = %v", err)
+	}
 }
