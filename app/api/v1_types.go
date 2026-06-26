@@ -6,15 +6,15 @@ import (
 
 const maxRequestBody = 160 << 20
 
-type OpenAIHandler struct {
+type V1Handler struct {
 	service *service.Server
 }
 
-func NewOpenAIHandler(service *service.Server) *OpenAIHandler {
-	return &OpenAIHandler{service: service}
+func NewV1Handler(service *service.Server) *V1Handler {
+	return &V1Handler{service: service}
 }
 
-type OpenAIImageRequest struct {
+type V1ImageRequest struct {
 	Model          string         `json:"model"`
 	Prompt         string         `json:"prompt"`
 	Size           string         `json:"size"`
@@ -30,7 +30,7 @@ type OpenAIImageRequest struct {
 	InputImageBase64 string `json:"image_base64"`
 }
 
-type OpenAIVideoRequest struct {
+type V1VideoRequest struct {
 	Model          string         `json:"model"`
 	Prompt         string         `json:"prompt"`
 	Size           string         `json:"size"`
@@ -45,26 +45,26 @@ type OpenAIVideoRequest struct {
 	} `json:"input_reference"`
 }
 
-type OpenAIOutputData struct {
+type V1OutputData struct {
 	URL     string `json:"url,omitempty"`
 	B64JSON string `json:"b64_json,omitempty"`
 }
 
-type OpenAITaskResponse struct {
-	ID      string             `json:"id"`
-	Object  string             `json:"object"`
-	Created int64              `json:"created"`
-	Status  string             `json:"status"`
-	Model   string             `json:"model,omitempty"`
-	Error   string             `json:"error,omitempty"`
-	Data    []OpenAIOutputData `json:"data,omitempty"`
+type V1TaskResponse struct {
+	ID      string         `json:"id"`
+	Object  string         `json:"object"`
+	Created int64          `json:"created"`
+	Status  string         `json:"status"`
+	Model   string         `json:"model,omitempty"`
+	Error   string         `json:"error,omitempty"`
+	Data    []V1OutputData `json:"data,omitempty"`
 }
 
-type OpenAIErrorResponse struct {
-	Error OpenAIError `json:"error"`
+type APIErrorResponse struct {
+	Error APIError `json:"error"`
 }
 
-type OpenAIError struct {
+type APIError struct {
 	Message string `json:"message"`
 	Type    string `json:"type"`
 	Code    string `json:"code,omitempty"`

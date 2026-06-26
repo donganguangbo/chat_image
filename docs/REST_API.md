@@ -1,6 +1,6 @@
 # Go Gateway API
 
-接口使用 OpenAI 兼容路由。
+接口使用 v1 风格路由。
 
 ## Base URL
 
@@ -20,7 +20,7 @@ curl -s http://127.0.0.1:8090/healthz
 - `X-Gateway-Nonce`
 - `X-Gateway-Signature`
 
-## OpenAI 兼容接口
+## v1 接口
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -108,7 +108,7 @@ curl -s http://127.0.0.1:8090/v1/videos \
 
 ## 工作流映射
 
-`app/configs/service.yaml` 的 `default_workflows` 决定 OpenAI 路由落到哪个内部 workflow：
+`app/configs/service.yaml` 的 `default_workflows` 决定 V1 路由落到哪个内部 workflow：
 
 ```yaml
 default_workflows:

@@ -41,7 +41,7 @@ go run .
 
 ## API
 
-外部接口使用 OpenAI 兼容路由：
+外部接口使用 v1 风格路由：
 
 - `POST /v1/images/generations`（文生图）
 - `POST /v1/images/edits`（图片编辑）
@@ -96,7 +96,7 @@ curl -s http://127.0.0.1:8090/v1/videos/<video_id> | jq
 
 ## 输出文件
 
-视频完成后可通过 OpenAI 兼容内容接口读取：
+视频完成后可通过 v1 内容接口读取：
 
 ```bash
 curl -I http://127.0.0.1:8090/v1/videos/<video_id>/content

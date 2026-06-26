@@ -1,12 +1,12 @@
-# API Migration: `/api/v1` to OpenAI-compatible `/v1`
+# API Migration: `/api/v1` to `/v1`
 
-旧的 `/api/v1/generate/*` 外部生成接口已移除。新客户端应改用 OpenAI 兼容路由。
+旧的 `/api/v1/generate/*` 外部生成接口已移除。新客户端应改用 v1 风格路由。
 
 ## 路由对照
 
 | 旧接口 | 新接口 | 说明 |
 |---|---|---|
-| `GET /api/v1/generate/categories` | 无 | 不再暴露类别发现；客户端直接调用 OpenAI 兼容端点 |
+| `GET /api/v1/generate/categories` | 无 | 不再暴露类别发现；客户端直接调用 v1 端点 |
 | `POST /api/v1/generate/t2i` | `POST /v1/images/generations` | 文生图 |
 | `POST /api/v1/generate/edit` | `POST /v1/images/edits` | 图片编辑；推荐 `multipart/form-data` |
 | `POST /api/v1/generate/t2v` | `POST /v1/videos` | 文生视频 |
@@ -149,7 +149,7 @@ curl -s http://127.0.0.1:8090/v1/images/edits \
 }
 ```
 
-新接口返回 OpenAI 兼容异步对象：
+新接口返回异步任务对象：
 
 ```json
 {
@@ -173,7 +173,7 @@ curl -s http://127.0.0.1:8090/v1/images/edits \
 
 ## 配置不变
 
-`app/configs/service.yaml` 仍控制 OpenAI 路由落到哪个内部 workflow：
+`app/configs/service.yaml` 仍控制 V1 路由落到哪个内部 workflow：
 
 ```yaml
 default_workflows:

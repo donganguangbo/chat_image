@@ -9,12 +9,12 @@ import (
 	"chat_image/app/service"
 )
 
-func openAIResponseFromTask(task *service.Task, object string) OpenAITaskResponse {
-	resp := OpenAITaskResponse{
+func v1ResponseFromTask(task *service.Task, object string) V1TaskResponse {
+	resp := V1TaskResponse{
 		ID:      task.ID,
 		Object:  object,
 		Created: task.CreatedAt.Unix(),
-		Status:  openAIStatus(task.Status),
+		Status:  v1Status(task.Status),
 		Error:   task.Error,
 	}
 	if model := asString(task.Params["model"]); model != "" {
@@ -27,28 +27,28 @@ func openAIResponseFromTask(task *service.Task, object string) OpenAITaskRespons
 		if strings.HasPrefix(object, "image.") && out.Kind != "image" {
 			continue
 		}
-		resp.Data = append(resp.Data, OpenAIOutputData{URL: out.URL})
+		resp.Data = append(resp.Data, V1OutputData{URL: out.URL})
 	}
 	return resp
 }
 
-func openAIStatus(status string) string {
+func v1Status(status string) string {
 	if status == "running" {
 		return "in_progress"
 	}
 	return status
 }
 
-func writeOpenAITaskError(w http.ResponseWriter, err error) {
+func writeTaskError(w http.ResponseWriter, err error) {
 	if errors.Is(err, service.ErrQueueFull) {
-		writeOpenAIError(w, http.StatusServiceUnavailable, err.Error())
+		writeAPIError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
-	writeOpenAIError(w, http.StatusBadRequest, err.Error())
+	writeAPIError(w, http.StatusBadRequest, err.Error())
 }
 
-func writeOpenAIError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, OpenAIErrorResponse{Error: OpenAIError{
+func writeAPIError(w http.ResponseWriter, status int, message string) {
+	writeJSON(w, status, APIErrorResponse{Error: APIError{
 		Message: message,
 		Type:    "invalid_request_error",
 	}})

@@ -14,7 +14,7 @@ import (
 	"chat_image/app/service"
 )
 
-func newTestOpenAIServer() *service.Server {
+func newTestV1Server() *service.Server {
 	workflows := map[string]service.WorkflowConfig{
 		"wf_t2i":  {ID: "wf_t2i", Mode: "t2i", Defaults: map[string]any{}, Required: []string{"prompt"}},
 		"wf_edit": {ID: "wf_edit", Mode: "image_edit", Defaults: map[string]any{}, Required: []string{"prompt", "input_image_base64"}},
@@ -36,7 +36,7 @@ func newTestOpenAIServer() *service.Server {
 	)
 }
 
-func performOpenAIRequest(t *testing.T, s *service.Server, method, path, body, contentType string) *httptest.ResponseRecorder {
+func performV1Request(t *testing.T, s *service.Server, method, path, body, contentType string) *httptest.ResponseRecorder {
 	t.Helper()
 	mux := http.NewServeMux()
 	api.Register(mux, s, t.TempDir(), service.StorageModeLocal)
@@ -50,9 +50,9 @@ func performOpenAIRequest(t *testing.T, s *service.Server, method, path, body, c
 	return rec
 }
 
-func TestOpenAIImageGenerationRouteCreatesTask(t *testing.T) {
-	s := newTestOpenAIServer()
-	rec := performOpenAIRequest(t, s, http.MethodPost, "/v1/images/generations", `{"prompt":"a cat","size":"512x768","model":"local-image"}`, "application/json")
+func TestV1ImageGenerationRouteCreatesTask(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/images/generations", `{"prompt":"a cat","size":"512x768","model":"local-image"}`, "application/json")
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
@@ -79,8 +79,8 @@ func TestOpenAIImageGenerationRouteCreatesTask(t *testing.T) {
 	}
 }
 
-func TestOpenAIImageEditRouteAcceptsMultipartImage(t *testing.T) {
-	s := newTestOpenAIServer()
+func TestV1ImageEditRouteAcceptsMultipartImage(t *testing.T) {
+	s := newTestV1Server()
 	var b bytes.Buffer
 	w := multipart.NewWriter(&b)
 	_ = w.WriteField("prompt", "edit it")
@@ -94,7 +94,7 @@ func TestOpenAIImageEditRouteAcceptsMultipartImage(t *testing.T) {
 		t.Fatalf("close multipart: %v", err)
 	}
 
-	rec := performOpenAIRequest(t, s, http.MethodPost, "/v1/images/edits", b.String(), w.FormDataContentType())
+	rec := performV1Request(t, s, http.MethodPost, "/v1/images/edits", b.String(), w.FormDataContentType())
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -111,9 +111,9 @@ func TestOpenAIImageEditRouteAcceptsMultipartImage(t *testing.T) {
 	}
 }
 
-func TestOpenAIVideoRoutes(t *testing.T) {
-	s := newTestOpenAIServer()
-	rec := performOpenAIRequest(t, s, http.MethodPost, "/v1/videos", `{"prompt":"move","size":"1280x720","seconds":4}`, "application/json")
+func TestV1VideoRoutes(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{"prompt":"move","size":"1280x720","seconds":4}`, "application/json")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("create status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -129,7 +129,7 @@ func TestOpenAIVideoRoutes(t *testing.T) {
 		t.Fatalf("created = %+v", created)
 	}
 
-	rec = performOpenAIRequest(t, s, http.MethodGet, "/v1/videos/"+created.ID, "", "")
+	rec = performV1Request(t, s, http.MethodGet, "/v1/videos/"+created.ID, "", "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("get status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -138,7 +138,7 @@ func TestOpenAIVideoRoutes(t *testing.T) {
 		tk.Status = "completed"
 		tk.Outputs = []model.TaskOutput{{Kind: "video", URL: "/outputs/videos/out.mp4"}}
 	})
-	rec = performOpenAIRequest(t, s, http.MethodGet, "/v1/videos/"+created.ID+"/content", "", "")
+	rec = performV1Request(t, s, http.MethodGet, "/v1/videos/"+created.ID+"/content", "", "")
 	if rec.Code != http.StatusTemporaryRedirect {
 		t.Fatalf("content status = %d, want %d; body=%s", rec.Code, http.StatusTemporaryRedirect, rec.Body.String())
 	}
@@ -148,7 +148,7 @@ func TestOpenAIVideoRoutes(t *testing.T) {
 }
 
 func TestLegacyGenerateRoutesAreNotRegistered(t *testing.T) {
-	s := newTestOpenAIServer()
+	s := newTestV1Server()
 	for _, path := range []string{
 		"/api/v1/generate/categories",
 		"/api/v1/generate/t2i",
@@ -161,7 +161,7 @@ func TestLegacyGenerateRoutesAreNotRegistered(t *testing.T) {
 		"/api/v1/tasks/task-id/cancel",
 		"/api/v1/workflows",
 	} {
-		rec := performOpenAIRequest(t, s, http.MethodPost, path, `{}`, "application/json")
+		rec := performV1Request(t, s, http.MethodPost, path, `{}`, "application/json")
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("%s status = %d, want %d", path, rec.Code, http.StatusNotFound)
 		}

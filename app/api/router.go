@@ -9,11 +9,11 @@ import (
 )
 
 func Register(mux *http.ServeMux, srv *service.Server, outputDir string, storageMode string) {
-	openAI := NewOpenAIHandler(srv)
-	mux.HandleFunc("/v1/images/generations", openAI.HandleImageGeneration)
-	mux.HandleFunc("/v1/images/edits", openAI.HandleImageEdit)
-	mux.HandleFunc("/v1/videos", openAI.HandleVideoCreate)
-	mux.HandleFunc("/v1/videos/", openAI.HandleVideoByID)
+	v1 := NewV1Handler(srv)
+	mux.HandleFunc("/v1/images/generations", v1.HandleImageGeneration)
+	mux.HandleFunc("/v1/images/edits", v1.HandleImageEdit)
+	mux.HandleFunc("/v1/videos", v1.HandleVideoCreate)
+	mux.HandleFunc("/v1/videos/", v1.HandleVideoByID)
 
 	if storageMode == service.StorageModeLocal {
 		mux.Handle("/outputs/", http.StripPrefix("/outputs/", http.FileServer(http.Dir(outputDir))))

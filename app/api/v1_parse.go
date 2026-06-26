@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-func parseOpenAIImageEditRequest(r *http.Request) (OpenAIImageRequest, error) {
+func parseImageEditRequest(r *http.Request) (V1ImageRequest, error) {
 	ct := r.Header.Get("Content-Type")
 	if strings.HasPrefix(ct, "multipart/form-data") {
 		if err := r.ParseMultipartForm(maxRequestBody); err != nil {
-			return OpenAIImageRequest{}, fmt.Errorf("invalid multipart body")
+			return V1ImageRequest{}, fmt.Errorf("invalid multipart body")
 		}
 		if r.MultipartForm != nil {
 			defer func() { _ = r.MultipartForm.RemoveAll() }()
 		}
-		req := OpenAIImageRequest{
+		req := V1ImageRequest{
 			Model:          r.FormValue("model"),
 			Prompt:         r.FormValue("prompt"),
 			Size:           r.FormValue("size"),
@@ -35,24 +35,24 @@ func parseOpenAIImageEditRequest(r *http.Request) (OpenAIImageRequest, error) {
 			if files := r.MultipartForm.File["image"]; len(files) > 0 {
 				f, err := files[0].Open()
 				if err != nil {
-					return OpenAIImageRequest{}, fmt.Errorf("read image file: %w", err)
+					return V1ImageRequest{}, fmt.Errorf("read image file: %w", err)
 				}
 				defer f.Close()
 				b, err := io.ReadAll(f)
 				if err != nil {
-					return OpenAIImageRequest{}, fmt.Errorf("read image file: %w", err)
+					return V1ImageRequest{}, fmt.Errorf("read image file: %w", err)
 				}
 				req.InputImageBase64 = base64.StdEncoding.EncodeToString(b)
 			}
 			if files := r.MultipartForm.File["mask"]; len(files) > 0 {
 				f, err := files[0].Open()
 				if err != nil {
-					return OpenAIImageRequest{}, fmt.Errorf("read mask file: %w", err)
+					return V1ImageRequest{}, fmt.Errorf("read mask file: %w", err)
 				}
 				defer f.Close()
 				b, err := io.ReadAll(f)
 				if err != nil {
-					return OpenAIImageRequest{}, fmt.Errorf("read mask file: %w", err)
+					return V1ImageRequest{}, fmt.Errorf("read mask file: %w", err)
 				}
 				req.Params["mask_base64"] = base64.StdEncoding.EncodeToString(b)
 			}
@@ -60,14 +60,14 @@ func parseOpenAIImageEditRequest(r *http.Request) (OpenAIImageRequest, error) {
 		return req, nil
 	}
 
-	var req OpenAIImageRequest
+	var req V1ImageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return OpenAIImageRequest{}, fmt.Errorf("invalid JSON body")
+		return V1ImageRequest{}, fmt.Errorf("invalid JSON body")
 	}
 	return req, nil
 }
 
-func parseOpenAISize(size string) (int, int, error) {
+func parseSize(size string) (int, int, error) {
 	size = strings.TrimSpace(size)
 	if size == "" || size == "auto" {
 		return 0, 0, nil
@@ -87,7 +87,7 @@ func parseOpenAISize(size string) (int, int, error) {
 	return w, h, nil
 }
 
-func copyOpenAICommonParams(params map[string]any, model, user string) {
+func copyCommonParams(params map[string]any, model, user string) {
 	if model = strings.TrimSpace(model); model != "" {
 		params["model"] = model
 	}
