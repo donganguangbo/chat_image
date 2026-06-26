@@ -1,0 +1,243 @@
+package service
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"os"
+	"time"
+)
+
+func (s *Server) executeTask(taskID string) {
+	task := s.getTask(taskID)
+	if task == nil {
+		return
+	}
+	// If the task was cancelled while sitting in the queue, skip it. Status is
+	// only mutated under s.mu, so reading the snapshot here is safe enough as a
+	// fast-path; the authoritative check happens inside the updateTask call
+	// below where we transition queued→running atomically.
+	if task.Status != "queued" {
+		return
+	}
+	comfy := s.comfyPool.Next()
+	if comfy == nil {
+		s.failTask(taskID, errors.New("no comfy backend available"))
+		return
+	}
+	cfg, ok := s.getWorkflow(task.WorkflowID)
+	if !ok {
+		s.failTask(taskID, fmt.Errorf("unknown workflow: %s", task.WorkflowID))
+		return
+	}
+
+	// Atomic CAS: only transition queued→running. If the task was cancelled
+	// after the snapshot above (i.e. between getTask and here), don't claim it.
+	taken := false
+	s.updateTask(taskID, func(t *Task) {
+		if t.Status != "queued" {
+			return
+		}
+		t.Status = "running"
+		t.Progress = 3
+		t.Message = "loading workflow"
+		t.Backend = comfy.BaseURL
+		taken = true
+	})
+	if !taken {
+		return
+	}
+
+	tplRaw, err := os.ReadFile(cfg.TemplatePath)
+	if err != nil {
+		s.failTask(taskID, fmt.Errorf("read template failed: %w", err))
+		return
+	}
+	var tplAny any
+	if err := json.Unmarshal(tplRaw, &tplAny); err != nil {
+		s.failTask(taskID, fmt.Errorf("template JSON invalid: %w", err))
+		return
+	}
+	tpl, ok := tplAny.(map[string]any)
+	if !ok {
+		s.failTask(taskID, errors.New("template root must be object"))
+		return
+	}
+
+	if cfg.TemplateFormat == "ui" || (cfg.TemplateFormat == "auto" && isUIWorkflow(tpl)) {
+		s.updateTask(taskID, func(t *Task) {
+			t.Progress = 8
+			t.Message = "converting UI workflow"
+		})
+		converted, cerr := comfy.ConvertWorkflow(tpl)
+		if cerr != nil {
+			s.failTask(taskID, fmt.Errorf("workflow convert failed: %w", cerr))
+			return
+		}
+		tpl = converted
+	}
+	if !isAPIWorkflow(tpl) {
+		s.failTask(taskID, fmt.Errorf("workflow is not API shape after conversion (workflow=%s)", cfg.ID))
+		return
+	}
+
+	params := cloneMap(task.Params)
+	if _, ok := params["size_long"]; !ok {
+		w := getInt(params["width"], 0)
+		h := getInt(params["height"], 0)
+		if w > 0 || h > 0 {
+			if w >= h {
+				params["size_long"] = w
+			} else {
+				params["size_long"] = h
+			}
+		}
+	}
+	if cfg.Mode == "i2v" {
+		// i2v head-trim workaround: the first ~Ns of i2v output tends to
+		// contain morphing artifacts (e.g., anatomy growing in for coupled
+		// scenes that require a second person absent from the single-frame
+		// reference). We generate extra frames up front, then let the
+		// workflow's ImageFromBatch node drop the first N seconds.
+		// GO_GATEWAY_I2V_TRIM_HEAD_SEC accepts fractional seconds (e.g. 1.5).
+		trimHeadSec := envFloat("GO_GATEWAY_I2V_TRIM_HEAD_SEC", 0)
+		userDuration := getInt(params["duration_sec"], 0)
+		fps := getInt(params["fps"], 0)
+		if userDuration > 0 && fps > 0 {
+			trimHeadFramesPreVFI := int(math.Round(trimHeadSec * float64(fps)))
+			if trimHeadFramesPreVFI < 0 {
+				trimHeadFramesPreVFI = 0
+			}
+			if trimHeadFramesPreVFI > 0 {
+				// Set length_frames directly so generation includes the
+				// extra frames; the generic calculator below skips when
+				// length_frames is already present.
+				params["length_frames"] = userDuration*fps + trimHeadFramesPreVFI
+			}
+			params["output_trim_head_frames"] = trimHeadFramesPreVFI * 2
+			params["output_final_frames"] = userDuration * fps * 2
+		}
+	}
+	if _, ok := params["length_frames"]; !ok {
+		durationSec := getInt(params["duration_sec"], 0)
+		fps := getInt(params["fps"], 0)
+		if durationSec > 0 && fps > 0 {
+			params["length_frames"] = durationSec * fps
+		}
+	}
+	if _, ok := params["fps_x2"]; !ok {
+		fps := getInt(params["fps"], 0)
+		if fps > 0 {
+			params["fps_x2"] = float64(fps * 2)
+		}
+	}
+	for _, key := range []string{"input_image", "input_image_end"} {
+		if err := s.materializeImageParam(comfy, taskID, params, key); err != nil {
+			s.failTask(taskID, fmt.Errorf("prepare %s failed: %w", key, err))
+			return
+		}
+	}
+	params["output_prefix"] = fmt.Sprintf("go/%s/%s_%s", cfg.ID, time.Now().Format("20060102_150405"), shortID(taskID))
+
+	renderedAny := renderTemplate(tpl, params)
+	rendered, ok := renderedAny.(map[string]any)
+	if !ok {
+		s.failTask(taskID, errors.New("rendered workflow is not object"))
+		return
+	}
+	if err := applyBindings(rendered, cfg.Bindings, params); err != nil {
+		s.failTask(taskID, fmt.Errorf("apply bindings failed: %w", err))
+		return
+	}
+	if cfg.Mode == "image_edit" || cfg.Mode == "t2i" || cfg.Mode == "i2v" {
+		if err := applyOptionalLora(rendered, params, cfg.Mode); err != nil {
+			s.failTask(taskID, fmt.Errorf("apply optional lora failed: %w", err))
+			return
+		}
+	}
+	if cfg.Mode == "image_edit" {
+		refineEnabled := getBool(params["refine_enabled"], false)
+		if err := applyInpaintMultiDetail(rendered, params, refineEnabled); err != nil {
+			s.failTask(taskID, fmt.Errorf("apply multi detail failed: %w", err))
+			return
+		}
+		applyInpaintRefineSwitch(rendered, refineEnabled)
+	}
+
+	promptID, err := comfy.QueuePrompt(rendered, taskID)
+	if err != nil {
+		s.failTask(taskID, err)
+		return
+	}
+
+	s.updateTask(taskID, func(t *Task) {
+		t.PromptID = promptID
+		t.Progress = 15
+		t.Message = "submitted"
+	})
+
+	timeoutSec := cfg.TimeoutSec
+	if timeoutSec <= 0 {
+		timeoutSec = 1800
+	}
+	imageEditAfterNodeIDs := collectImageEditAfterNodeIDs(rendered)
+	outputs, runErr := s.waitForPromptOutputs(
+		comfy,
+		taskID,
+		cfg,
+		promptID,
+		imageEditAfterNodeIDs,
+		timeoutSec,
+		15,
+		90,
+		"running",
+	)
+	if runErr != nil && cfg.Mode == "image_edit" && isMissingImageEditAfterError(runErr) {
+		fallbackPrompt := cloneMap(rendered)
+		applyImageEditNoSwapFallback(fallbackPrompt)
+		fallbackAfterIDs := collectImageEditAfterNodeIDs(fallbackPrompt)
+		fallbackPromptID, qerr := comfy.QueuePrompt(fallbackPrompt, taskID)
+		if qerr != nil {
+			runErr = fmt.Errorf("%v | fallback_no_swap queue failed: %v", runErr, qerr)
+		} else {
+			s.updateTask(taskID, func(t *Task) {
+				t.PromptID = fallbackPromptID
+				t.Progress = maxInt(t.Progress, 50)
+				t.Message = "retry_no_swap"
+			})
+			fallbackOutputs, ferr := s.waitForPromptOutputs(
+				comfy,
+				taskID,
+				cfg,
+				fallbackPromptID,
+				fallbackAfterIDs,
+				timeoutSec,
+				50,
+				95,
+				"retrying_no_swap",
+			)
+			if ferr != nil {
+				runErr = fmt.Errorf("%v | fallback_no_swap failed: %v", runErr, ferr)
+			} else {
+				s.updateTask(taskID, func(t *Task) {
+					t.Status = "completed"
+					t.Progress = 100
+					t.Message = "done_fallback_no_swap"
+					t.Outputs = fallbackOutputs
+				})
+				return
+			}
+		}
+	}
+	if runErr != nil {
+		s.failTask(taskID, runErr)
+		return
+	}
+	s.updateTask(taskID, func(t *Task) {
+		t.Status = "completed"
+		t.Progress = 100
+		t.Message = "done"
+		t.Outputs = outputs
+	})
+}

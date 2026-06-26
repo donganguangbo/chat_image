@@ -1,4 +1,4 @@
-package main
+package storage
 
 import (
 	"context"
@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 	"time"
+
+	"chat_image/model"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
@@ -31,15 +33,6 @@ type storageConfig struct {
 	bucket    string
 	accessKey string
 	secretKey string
-}
-
-// S3FileConfig is the `s3:` section of configs/service.yaml.
-type S3FileConfig struct {
-	Endpoint  string `yaml:"endpoint"`
-	Region    string `yaml:"region"`
-	Bucket    string `yaml:"bucket"`
-	AccessKey string `yaml:"access_key"`
-	SecretKey string `yaml:"secret_key"`
 }
 
 // validateStorageConfig trims the five settings and decides whether object
@@ -93,7 +86,7 @@ func buildObjectStorage(cfg storageConfig) (*ObjectStorage, error) {
 // NewObjectStorageFromConfig builds an ObjectStorage from the service.yaml `s3:`
 // section. Returns (nil, false, nil) when the bucket is unset (disabled →
 // disk-only).
-func NewObjectStorageFromConfig(c S3FileConfig) (*ObjectStorage, bool, error) {
+func NewObjectStorageFromConfig(c model.S3FileConfig) (*ObjectStorage, bool, error) {
 	cfg, ok, err := validateStorageConfig(c.Endpoint, c.Region, c.Bucket, c.AccessKey, c.SecretKey)
 	if err != nil || !ok {
 		return nil, false, err
@@ -111,7 +104,7 @@ func NewObjectStorageFromConfig(c S3FileConfig) (*ObjectStorage, bool, error) {
 //
 //	images/{yyyymmdd}/{name}   for images
 //	videos/{yyyymmdd}/{name}   for videos
-func gatewayObjectKey(kind, name string, now time.Time) string {
+func ObjectKey(kind, name string, now time.Time) string {
 	if kind == "video" {
 		return fmt.Sprintf("videos/%s/%s", now.UTC().Format("20060102"), name)
 	}

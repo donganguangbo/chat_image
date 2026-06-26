@@ -1,0 +1,24 @@
+package api
+
+import (
+	"encoding/json"
+	"net/http"
+	"time"
+
+	"chat_image/service"
+)
+
+func Register(mux *http.ServeMux, srv *service.Server, outputDir string) {
+	openAI := NewOpenAIHandler(srv)
+	mux.HandleFunc("/v1/images/generations", openAI.HandleImageGeneration)
+	mux.HandleFunc("/v1/images/edits", openAI.HandleImageEdit)
+	mux.HandleFunc("/v1/videos", openAI.HandleVideoCreate)
+	mux.HandleFunc("/v1/videos/", openAI.HandleVideoByID)
+
+	mux.Handle("/outputs/", http.StripPrefix("/outputs/", http.FileServer(http.Dir(outputDir))))
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "time": time.Now().UTC()})
+	})
+}

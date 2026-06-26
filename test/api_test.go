@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"bytes"
@@ -6,36 +6,40 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
+
+	"chat_image/api"
+	"chat_image/model"
+	"chat_image/service"
 )
 
-func newTestOpenAIServer() *Server {
-	workflows := map[string]WorkflowConfig{
+func newTestOpenAIServer() *service.Server {
+	workflows := map[string]service.WorkflowConfig{
 		"wf_t2i":  {ID: "wf_t2i", Mode: "t2i", Defaults: map[string]any{}, Required: []string{"prompt"}},
 		"wf_edit": {ID: "wf_edit", Mode: "image_edit", Defaults: map[string]any{}, Required: []string{"prompt", "input_image_base64"}},
 		"wf_t2v":  {ID: "wf_t2v", Mode: "text_to_video", Defaults: map[string]any{}, Required: []string{"prompt"}},
 		"wf_i2v":  {ID: "wf_i2v", Mode: "i2v", Defaults: map[string]any{}, Required: []string{"prompt", "input_image_url"}},
 	}
-	return &Server{
-		workflows: workflows,
-		tasks:     map[string]*Task{},
-		queue:     make(chan string, 8),
-		service: ServiceConfig{DefaultWorkflows: CategoryWorkflowConfig{
+	return service.NewServer(
+		workflows,
+		nil,
+		service.ServiceConfig{DefaultWorkflows: service.CategoryWorkflowConfig{
 			TextToImage:  "wf_t2i",
 			ImageEdit:    "wf_edit",
 			TextToVideo:  "wf_t2v",
 			ImageToVideo: "wf_i2v",
 		}},
-	}
+		1,
+		"",
+		nil,
+	)
 }
 
-func performOpenAIRequest(t *testing.T, s *Server, method, path, body, contentType string) *httptest.ResponseRecorder {
+func performOpenAIRequest(t *testing.T, s *service.Server, method, path, body, contentType string) *httptest.ResponseRecorder {
 	t.Helper()
 	mux := http.NewServeMux()
-	registerRoutes(mux, s, t.TempDir())
+	api.Register(mux, s, t.TempDir())
 
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if contentType != "" {
@@ -66,11 +70,11 @@ func TestOpenAIImageGenerationRouteCreatesTask(t *testing.T) {
 		t.Fatalf("response = %+v", body)
 	}
 
-	task := s.getTask(body.ID)
+	task := s.GetTask(body.ID)
 	if task == nil {
 		t.Fatalf("task %q not found", body.ID)
 	}
-	if task.WorkflowID != "wf_t2i" || getInt(task.Params["width"], 0) != 512 || getInt(task.Params["height"], 0) != 768 {
+	if task.WorkflowID != "wf_t2i" || intParam(task.Params["width"]) != 512 || intParam(task.Params["height"]) != 768 {
 		t.Fatalf("task = %+v", task)
 	}
 }
@@ -101,7 +105,7 @@ func TestOpenAIImageEditRouteAcceptsMultipartImage(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	task := s.getTask(body.ID)
+	task := s.GetTask(body.ID)
 	if task == nil || task.WorkflowID != "wf_edit" || task.Params["input_image_base64"] == "" {
 		t.Fatalf("task = %+v", task)
 	}
@@ -130,9 +134,9 @@ func TestOpenAIVideoRoutes(t *testing.T) {
 		t.Fatalf("get status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
 
-	s.updateTask(created.ID, func(tk *Task) {
+	s.UpdateTask(created.ID, func(tk *model.Task) {
 		tk.Status = "completed"
-		tk.Outputs = []TaskOutput{{Kind: "video", URL: "/outputs/videos/out.mp4"}}
+		tk.Outputs = []model.TaskOutput{{Kind: "video", URL: "/outputs/videos/out.mp4"}}
 	})
 	rec = performOpenAIRequest(t, s, http.MethodGet, "/v1/videos/"+created.ID+"/content", "", "")
 	if rec.Code != http.StatusTemporaryRedirect {
@@ -164,31 +168,13 @@ func TestLegacyGenerateRoutesAreNotRegistered(t *testing.T) {
 	}
 }
 
-func TestLoadWorkflowsAllowsMissingOrEmptyDir(t *testing.T) {
-	got, err := loadWorkflows(filepath.Join(t.TempDir(), "missing"))
-	if err != nil {
-		t.Fatalf("missing dir err = %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("missing dir workflows = %d, want 0", len(got))
-	}
-
-	got, err = loadWorkflows(t.TempDir())
-	if err != nil {
-		t.Fatalf("empty dir err = %v", err)
-	}
-	if len(got) != 0 {
-		t.Fatalf("empty dir workflows = %d, want 0", len(got))
-	}
-}
-
-func TestLoadServiceConfigAllowsNoWorkflows(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "service.yaml")
-	if err := os.WriteFile(path, []byte("default_workflows:\n  text_to_image: deleted\n"), 0o600); err != nil {
-		t.Fatalf("write service config: %v", err)
-	}
-
-	if _, err := loadServiceConfig(path, map[string]WorkflowConfig{}); err != nil {
-		t.Fatalf("loadServiceConfig with no workflows err = %v", err)
+func intParam(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case float64:
+		return int(n)
+	default:
+		return 0
 	}
 }

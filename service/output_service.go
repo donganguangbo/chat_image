@@ -1,0 +1,190 @@
+package service
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"time"
+)
+
+func isMissingImageEditAfterError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "no image_edit '_after' output produced")
+}
+
+func applyImageEditNoSwapFallback(prompt map[string]any) {
+	if nodeSwap, ok := prompt["50"].(map[string]any); ok {
+		if inputs, ok := nodeSwap["inputs"].(map[string]any); ok {
+			inputs["enabled"] = false
+		}
+	}
+	if nodeAfter, ok := prompt["8"].(map[string]any); ok {
+		if inputs, ok := nodeAfter["inputs"].(map[string]any); ok {
+			inputs["images"] = []any{"39", 0}
+		}
+	}
+	delete(prompt, "80")
+}
+
+func maxInt(a, b int) int {
+	if a >= b {
+		return a
+	}
+	return b
+}
+
+func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg WorkflowConfig, historyEntry map[string]any, imageEditAfterNodeIDs []string) ([]TaskOutput, error) {
+	outputsAny, ok := historyEntry["outputs"].(map[string]any)
+	if !ok {
+		return nil, errors.New("comfy history has no outputs")
+	}
+	afterNodeSet := map[string]struct{}{}
+	for _, id := range imageEditAfterNodeIDs {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			afterNodeSet[id] = struct{}{}
+		}
+	}
+
+	imagesDir := filepath.Join(s.outputDir, "images")
+	videosDir := filepath.Join(s.outputDir, "videos")
+	if err := os.MkdirAll(imagesDir, 0o755); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(videosDir, 0o755); err != nil {
+		return nil, err
+	}
+
+	var out []TaskOutput
+	for nodeID, nodeVal := range outputsAny {
+		nodeMap, ok := nodeVal.(map[string]any)
+		if !ok {
+			continue
+		}
+		nodeID = strings.TrimSpace(nodeID)
+		for key, kind := range map[string]string{"images": "image", "videos": "video", "gifs": "video"} {
+			if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) > 0 {
+				if _, ok := afterNodeSet[nodeID]; !ok {
+					continue
+				}
+			}
+			items, _ := nodeMap[key].([]any)
+			for _, item := range items {
+				m, ok := item.(map[string]any)
+				if !ok {
+					continue
+				}
+				filename := asString(m["filename"])
+				subfolder := asString(m["subfolder"])
+				fileType := asString(m["type"])
+				if filename == "" {
+					continue
+				}
+				if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) == 0 {
+					marker := strings.ToLower(filename + " " + subfolder)
+					isAfter := strings.Contains(marker, "_after") &&
+						!strings.Contains(marker, "_after_swap") &&
+						!strings.Contains(marker, "_before")
+					if !isAfter {
+						continue
+					}
+				}
+
+				content, err := comfy.ViewFile(filename, subfolder, fileType)
+				if err != nil {
+					continue
+				}
+
+				prepared, err := prepareGeneratedOutputContent(kind, filename, content, generatedOutputConverters{
+					imageToAVIF:   convertImageBytesToAVIF,
+					videoToAV1MP4: convertVideoBytesToAV1MP4,
+				})
+				if err != nil {
+					return nil, fmt.Errorf("prepare output %s: %w", filename, err)
+				}
+				ext := prepared.ext
+				safeBase := sanitizeName(strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename)))
+				if safeBase == "" {
+					safeBase = "out"
+				}
+				safeSubfolder := sanitizeName(strings.Trim(filepath.ToSlash(subfolder), "/"))
+				if safeSubfolder != "" && safeSubfolder != "." {
+					safeBase = safeSubfolder + "_" + safeBase
+				}
+				now := time.Now()
+				targetName := fmt.Sprintf("%s_%s_%s%s", shortID(taskID), now.Format("150405"), safeBase, ext)
+				targetDir := imagesDir
+				urlPrefix := "/outputs/images/"
+				if kind == "video" {
+					targetDir = videosDir
+					urlPrefix = "/outputs/videos/"
+				}
+				targetPath := filepath.Join(targetDir, targetName)
+				size, werr := writePreparedOutput(prepared, targetPath)
+				if prepared.cleanup != nil {
+					prepared.cleanup()
+				}
+				if werr != nil {
+					return nil, fmt.Errorf("write output %s: %w", targetPath, werr)
+				}
+				item := TaskOutput{
+					Kind:     kind,
+					Filename: targetName,
+					URL:      urlPrefix + targetName,
+					Size:     size,
+				}
+				if s.storage != nil {
+					key := gatewayObjectKey(kind, targetName, now)
+					// Stream the file we just wrote to S3 instead of re-buffering it.
+					if f, oerr := os.Open(targetPath); oerr != nil {
+						log.Printf("[storage] open %s for upload failed: %v", targetPath, oerr)
+					} else {
+						uploadCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+						uerr := s.storage.UploadPrivate(uploadCtx, key, f, outputContentType(ext))
+						cancel()
+						f.Close()
+						if uerr != nil {
+							log.Printf("[storage] upload %s failed: %v", key, uerr)
+						} else {
+							item.Key = key
+						}
+					}
+				}
+				out = append(out, item)
+			}
+		}
+	}
+
+	if len(out) == 0 {
+		if cfg.Mode == "image_edit" {
+			if len(afterNodeSet) > 0 {
+				ids := make([]string, 0, len(afterNodeSet))
+				for id := range afterNodeSet {
+					ids = append(ids, id)
+				}
+				sort.Strings(ids)
+				return nil, fmt.Errorf(
+					"no image_edit '_after' output produced for workflow=%s (expected node_ids=%s, expected_state=%s, available=%s)",
+					cfg.ID,
+					strings.Join(ids, ","),
+					summarizeExpectedOutputNodes(outputsAny, ids),
+					summarizeOutputNodes(outputsAny),
+				)
+			}
+			return nil, fmt.Errorf(
+				"no image_edit '_after' output produced for workflow=%s (available=%s)",
+				cfg.ID,
+				summarizeOutputNodes(outputsAny),
+			)
+		}
+		return nil, fmt.Errorf("no output files produced for workflow=%s", cfg.ID)
+	}
+	return out, nil
+}
