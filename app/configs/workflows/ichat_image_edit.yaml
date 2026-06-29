@@ -1,6 +1,6 @@
 id: ichat_image_edit
 name: iChat Image Edit
-template: ../../../workflows/comfy_ui/ichat_image_edit.json
+template: ../../../workflows/ichat_image_edit.json
 template_format: api
 mode: t2i
 output_kind: image
@@ -32,3 +32,6 @@ bindings:
   - node: "8"
     input: image
     param: input_image
+  - node: "8"
+    input: image
+    param: input_image_end

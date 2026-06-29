@@ -1,0 +1,815 @@
+{
+  "273": {
+    "inputs": {
+      "filename_prefix": "ICHAT",
+      "format": "auto",
+      "codec": "auto",
+      "video": [
+        "312",
+        0
+      ]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "保存视频"
+    }
+  },
+  "274": {
+    "inputs": {
+      "noise_seed": 42
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "275": {
+    "inputs": {
+      "noise_seed": 24
+    },
+    "class_type": "RandomNoise",
+    "_meta": {
+      "title": "随机噪波"
+    }
+  },
+  "276": {
+    "inputs": {
+      "video_latent": [
+        "288",
+        0
+      ],
+      "audio_latent": [
+        "309",
+        1
+      ]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "LTXVConcatAVLatent"
+    }
+  },
+  "277": {
+    "inputs": {
+      "ckpt_name": "ltx-2.3-22b-dev-fp8.safetensors"
+    },
+    "class_type": "LTXVAudioVAELoader",
+    "_meta": {
+      "title": "LTXV音频VAE加载器"
+    }
+  },
+  "278": {
+    "inputs": {
+      "text_encoder": "gemma_3_12B_it_fp4_mixed.safetensors",
+      "ckpt_name": "ltx-2.3-22b-dev-fp8.safetensors",
+      "device": "default"
+    },
+    "class_type": "LTXAVTextEncoderLoader",
+    "_meta": {
+      "title": "LTXV音频文本编码器加载器"
+    }
+  },
+  "279": {
+    "inputs": {
+      "sampler_name": "euler_cfg_pp"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "280": {
+    "inputs": {
+      "sigmas": "0.85, 0.7250, 0.4219, 0.0"
+    },
+    "class_type": "ManualSigmas",
+    "_meta": {
+      "title": "自定义Sigmas"
+    }
+  },
+  "281": {
+    "inputs": {
+      "ckpt_name": "sulphur_dev_bf16.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）"
+    }
+  },
+  "282": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "285",
+        0
+      ],
+      "positive": [
+        "284",
+        0
+      ],
+      "negative": [
+        "284",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG引导器"
+    }
+  },
+  "283": {
+    "inputs": {
+      "noise": [
+        "275",
+        0
+      ],
+      "guider": [
+        "316",
+        0
+      ],
+      "sampler": [
+        "291",
+        0
+      ],
+      "sigmas": [
+        "308",
+        0
+      ],
+      "latent_image": [
+        "306",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）"
+    }
+  },
+  "284": {
+    "inputs": {
+      "positive": [
+        "305",
+        0
+      ],
+      "negative": [
+        "305",
+        1
+      ],
+      "latent": [
+        "309",
+        0
+      ]
+    },
+    "class_type": "LTXVCropGuides",
+    "_meta": {
+      "title": "LTXV裁剪指导"
+    }
+  },
+  "285": {
+    "inputs": {
+      "lora_name": "ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "strength_model": 0.5,
+      "model": [
+        "281",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（仅模型）"
+    }
+  },
+  "286": {
+    "inputs": {
+      "longer_edge": 1536,
+      "images": [
+        "290",
+        0
+      ]
+    },
+    "class_type": "ResizeImagesByLongerEdge",
+    "_meta": {
+      "title": "缩放图像（长边）"
+    }
+  },
+  "287": {
+    "inputs": {
+      "samples": [
+        "309",
+        0
+      ],
+      "upscale_model": [
+        "313",
+        0
+      ],
+      "vae": [
+        "281",
+        2
+      ]
+    },
+    "class_type": "LTXVLatentUpsampler",
+    "_meta": {
+      "title": "LTXV潜空间上采样器"
+    }
+  },
+  "288": {
+    "inputs": {
+      "strength": 1,
+      "bypass": [
+        "302",
+        0
+      ],
+      "vae": [
+        "281",
+        2
+      ],
+      "image": [
+        "289",
+        0
+      ],
+      "latent": [
+        "287",
+        0
+      ]
+    },
+    "class_type": "LTXVImgToVideoInplace",
+    "_meta": {
+      "title": "LTXV图像转视频（原地）"
+    }
+  },
+  "289": {
+    "inputs": {
+      "img_compression": 18,
+      "image": [
+        "286",
+        0
+      ]
+    },
+    "class_type": "LTXVPreprocess",
+    "_meta": {
+      "title": "LTXV预处理"
+    }
+  },
+  "290": {
+    "inputs": {
+      "resize_type": "scale dimensions",
+      "resize_type.width": [
+        "314",
+        0
+      ],
+      "resize_type.height": [
+        "299",
+        0
+      ],
+      "resize_type.crop": "center",
+      "scale_method": "lanczos",
+      "input": [
+        "318",
+        0
+      ]
+    },
+    "class_type": "ResizeImageMaskNode",
+    "_meta": {
+      "title": "调整图像/掩码大小"
+    }
+  },
+  "291": {
+    "inputs": {
+      "sampler_name": "euler_ancestral_cfg_pp"
+    },
+    "class_type": "KSamplerSelect",
+    "_meta": {
+      "title": "K采样器选择"
+    }
+  },
+  "292": {
+    "inputs": {
+      "expression": "a/2",
+      "values.a": [
+        "314",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "数学表达式"
+    }
+  },
+  "294": {
+    "inputs": {
+      "expression": "a/2",
+      "values.a": [
+        "299",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "数学表达式"
+    }
+  },
+  "295": {
+    "inputs": {
+      "width": [
+        "292",
+        1
+      ],
+      "height": [
+        "294",
+        1
+      ],
+      "length": [
+        "301",
+        0
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptyLTXVLatentVideo",
+    "_meta": {
+      "title": "空Latent视频（LTXV）"
+    }
+  },
+  "296": {
+    "inputs": {
+      "strength": 0.7,
+      "bypass": [
+        "302",
+        0
+      ],
+      "vae": [
+        "281",
+        2
+      ],
+      "image": [
+        "289",
+        0
+      ],
+      "latent": [
+        "295",
+        0
+      ]
+    },
+    "class_type": "LTXVImgToVideoInplace",
+    "_meta": {
+      "title": "LTXV图像转视频（原地）"
+    }
+  },
+  "297": {
+    "inputs": {
+      "samples": [
+        "311",
+        1
+      ],
+      "audio_vae": [
+        "277",
+        0
+      ]
+    },
+    "class_type": "LTXVAudioVAEDecode",
+    "_meta": {
+      "title": "LTXV音频VAE解码"
+    }
+  },
+  "298": {
+    "inputs": {
+      "expression": "a",
+      "values.a": [
+        "300",
+        0
+      ]
+    },
+    "class_type": "ComfyMathExpression",
+    "_meta": {
+      "title": "数学表达式"
+    }
+  },
+  "299": {
+    "inputs": {
+      "value": 720
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Height"
+    }
+  },
+  "300": {
+    "inputs": {
+      "value": 24
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Frame Rate"
+    }
+  },
+  "301": {
+    "inputs": {
+      "value": 241
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Length"
+    }
+  },
+  "302": {
+    "inputs": {
+      "value": false
+    },
+    "class_type": "PrimitiveBoolean",
+    "_meta": {
+      "title": "Switch to Text to Video?"
+    }
+  },
+  "303": {
+    "inputs": {
+      "value": "1girl, lying flat on stomach prone bone position, man on top pounding her, pink hanfu completely open, breasts squished against bed, detailed deep thrusting and ass focus, nsfw"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Prompt"
+    }
+  },
+  "304": {
+    "inputs": {
+      "text": [
+        "303",
+        0
+      ],
+      "clip": [
+        "278",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "305": {
+    "inputs": {
+      "frame_rate": [
+        "298",
+        0
+      ],
+      "positive": [
+        "304",
+        0
+      ],
+      "negative": [
+        "315",
+        0
+      ]
+    },
+    "class_type": "LTXVConditioning",
+    "_meta": {
+      "title": "LTXV条件"
+    }
+  },
+  "306": {
+    "inputs": {
+      "video_latent": [
+        "296",
+        0
+      ],
+      "audio_latent": [
+        "307",
+        0
+      ]
+    },
+    "class_type": "LTXVConcatAVLatent",
+    "_meta": {
+      "title": "LTXVConcatAVLatent"
+    }
+  },
+  "307": {
+    "inputs": {
+      "frames_number": [
+        "301",
+        0
+      ],
+      "frame_rate": [
+        "298",
+        1
+      ],
+      "batch_size": 1,
+      "audio_vae": [
+        "277",
+        0
+      ]
+    },
+    "class_type": "LTXVEmptyLatentAudio",
+    "_meta": {
+      "title": "LTXV 空音频潜空间"
+    }
+  },
+  "308": {
+    "inputs": {
+      "sigmas": "1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0"
+    },
+    "class_type": "ManualSigmas",
+    "_meta": {
+      "title": "自定义Sigmas"
+    }
+  },
+  "309": {
+    "inputs": {
+      "av_latent": [
+        "283",
+        0
+      ]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "LTXV分离音视频潜空间"
+    }
+  },
+  "310": {
+    "inputs": {
+      "noise": [
+        "274",
+        0
+      ],
+      "guider": [
+        "282",
+        0
+      ],
+      "sampler": [
+        "279",
+        0
+      ],
+      "sigmas": [
+        "280",
+        0
+      ],
+      "latent_image": [
+        "276",
+        0
+      ]
+    },
+    "class_type": "SamplerCustomAdvanced",
+    "_meta": {
+      "title": "自定义采样器（高级）"
+    }
+  },
+  "311": {
+    "inputs": {
+      "av_latent": [
+        "310",
+        0
+      ]
+    },
+    "class_type": "LTXVSeparateAVLatent",
+    "_meta": {
+      "title": "LTXV分离音视频潜空间"
+    }
+  },
+  "312": {
+    "inputs": {
+      "fps": [
+        "298",
+        0
+      ],
+      "images": [
+        "317",
+        0
+      ],
+      "audio": [
+        "297",
+        0
+      ]
+    },
+    "class_type": "CreateVideo",
+    "_meta": {
+      "title": "创建视频"
+    }
+  },
+  "313": {
+    "inputs": {
+      "model_name": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors"
+    },
+    "class_type": "LatentUpscaleModelLoader",
+    "_meta": {
+      "title": "加载Latent放大模型"
+    }
+  },
+  "314": {
+    "inputs": {
+      "value": 576
+    },
+    "class_type": "PrimitiveInt",
+    "_meta": {
+      "title": "Width"
+    }
+  },
+  "315": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "278",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP文本编码"
+    }
+  },
+  "316": {
+    "inputs": {
+      "cfg": 1,
+      "model": [
+        "285",
+        0
+      ],
+      "positive": [
+        "305",
+        0
+      ],
+      "negative": [
+        "305",
+        1
+      ]
+    },
+    "class_type": "CFGGuider",
+    "_meta": {
+      "title": "CFG引导器"
+    }
+  },
+  "317": {
+    "inputs": {
+      "tile_size": 768,
+      "overlap": 64,
+      "temporal_size": 4096,
+      "temporal_overlap": 4,
+      "samples": [
+        "311",
+        0
+      ],
+      "vae": [
+        "281",
+        2
+      ]
+    },
+    "class_type": "VAEDecodeTiled",
+    "_meta": {
+      "title": "VAE解码（分块）"
+    }
+  },
+  "318": {
+    "inputs": {
+      "samples": [
+        "319",
+        0
+      ],
+      "vae": [
+        "321",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE解码"
+    }
+  },
+  "319": {
+    "inputs": {
+      "seed": 65454654,
+      "steps": 4,
+      "cfg": 1,
+      "sampler_name": "sa_solver",
+      "scheduler": "beta",
+      "denoise": 1,
+      "model": [
+        "321",
+        0
+      ],
+      "positive": [
+        "327",
+        0
+      ],
+      "negative": [
+        "323",
+        0
+      ],
+      "latent_image": [
+        "322",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "K采样器"
+    }
+  },
+  "320": {
+    "inputs": {
+      "images": [
+        "318",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "预览图像"
+    }
+  },
+  "321": {
+    "inputs": {
+      "ckpt_name": "Qwen-Rapid-AIO-NSFW-v23.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Checkpoint加载器（简易）"
+    }
+  },
+  "322": {
+    "inputs": {
+      "width": [
+        "324",
+        0
+      ],
+      "height": [
+        "324",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "空Latent图像（SD3）"
+    }
+  },
+  "323": {
+    "inputs": {
+      "prompt": "(worst quality, low quality:1.4), (deformed, distorted, disfigured:1.5), poorly drawn, bad anatomy, weird anatomy, extra limbs, missing limbs, floating limbs, disconnected limbs, fused fingers, too many fingers, two legs, missing arm, (long neck:1.2), (bad hands:1.5), (bad feet:1.5), (bad face:1.5), (crooked eyes:1.2), (unfocused eyes:1.2), (crossed eyes:1.2), (asymmetrical face:1.2), (blown out highlights:1.2), (crushed shadows:1.2), (overexposed:1.2), (underexposed:1.2), (motion blur:1.2), (shaking:1.2), (jittery:1.2), (warping:1.5), (morphing:1.5), (stretched:1.5), (squared:1.2), (pixelated:1.2), (blocky:1.2), (noisy:1.2), (grainy:1.2), (blurry:1.2), (low resolution:1.2), (text, watermark, signature, logo), (signature:1.2), (text:1.2), (words:1.2), (glitch, artifact), (bad texture, (texture noise:1.2)), (sweat, oil, slime), (too smooth skin:1.2), (plastic skin:1.2), (plastic:1.2), (waxy:1.2), (unreal, cgi, 3d render, octane, unreal engine), (cartoon, anime, drawing, sketch), (deformed hair, messy hair, (hair floating:1.2), (hair physics:1.2)), (deformed jewelry, (jewelry floating:1.2)), (deformed clothing, (clothing floating:1.2)), (deformed background, (background moving:1.2)), (too much movement, (overly dynamic:1.2)), (too little movement, (static:1.2)), (face swap, (face distortion:1.2)), (body swap, (body distortion:1.2)), (limb swap, (limb distortion:1.2)), (extra eyes, (extra mouth:1.2)), (double chin:1.2), (wide mouth:1.2), (small mouth:1.2), (big nose:1.2), (small nose:1.2), (big ears:1.2), (small ears:1.2), (big head:1.2), (small head:1.2), (big body:1.2), (small body:1.2), (fat:1.2), (thin:1.2), (old, young, baby, child, adult, senior), (male, female, boy, girl, man, woman), (dark, light, black, white, blue, red, green, yellow, purple, orange, pink, brown, gray, silver, gold, bronze, copper, iron, steel, titanium, platinum, chrome, aluminum, zinc, lead, mercury, cadmium, cobalt, nickel, manganese, vanadium, chromium, molybdenum, tungsten, hafnium, rhenium, osmium, iridium, ruthenium, technetium, einsteinium, fermium, mendelevium, nobelium, lawrencium, rutherfordium, darmstadtium, roentgenium, copernicium, nihonium, flerovium, moscovium, livermorium, tennessine, oganesson, (quantum:1.2), (relativity:1.2), (string theory:1.2), (multiverse:1.2), (parallel universe:1.2), (time travel:1.2), (teleportation:1.2), (invisibility:1.2), (superpower:1.2), (magic, spell, magic power), (fire, water, earth, air, ice, lightning, wind, thunder, storm, rain, snow, hail, sleet, fog, mist, cloud, sky, ocean, lake, river, stream, waterfall, ocean, sea, beach, shore, sand, rock, stone, wood, metal, glass, plastic, rubber, leather, silk, cotton, wool, linen, nylon, polyester, acrylic, rayon, spandex, elastane, lycra, neoprene, latex, vinyl, pvc, urethane, silicone, rubber, plastic, metal, glass, wood, stone, rock, sand, soil, dirt, mud, clay, mud, silt, loam, peat, humus, compost, fertilizer, pesticide, herbicide, insecticide, fungicide, rodenticide, acaricide, nematicide, bactericide, virucidal, sporicide, algicide, fungistat, bacteriostat, virucidal, sporicidal, algicidal, (quantum:1.2), (relativity:1.2), (string theory:1.2), (multiverse:1.2), (parallel universe:1.2), (time travel:1.2), (teleportation:1.2), (invisibility:1.2), (superpower:1.2), (magic, spell, magic power), (fire, water, earth, air, ice, lightning, wind, thunder, storm, rain, snow, hail, sleet, fog, mist, cloud, sky, ocean, lake, river, stream, waterfall, ocean, sea, beach, shore, sand, rock, stone, wood, metal, glass, plastic, rubber, leather, silk, cotton, wool, linen, nylon, polyester, acrylic, rayon, spandex, elastane, lycra, neoprene, latex, vinyl, pvc, urethane, silicone, rubber, plastic, metal, glass, wood, stone, rock, sand, soil, dirt, mud, clay, mud, silt, loam, peat, humus, compost, fertilizer, pesticide, herbicide, insecticide, fungicide, rodenticide, acaricide, nematicide, bactericide, virucidal, sporicide, algicide, fungistat, bacteriostat, virucidal, sporicidal, algicidal)\n",
+      "clip": [
+        "321",
+        1
+      ],
+      "vae": [
+        "321",
+        2
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus Negative (leave blank)"
+    }
+  },
+  "324": {
+    "inputs": {
+      "image": [
+        "326",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "获取图像尺寸"
+    }
+  },
+  "325": {
+    "inputs": {
+      "image": "6161af29-6f8b-4e24-b630-9a1216422302.jpg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Optional Input Image"
+    }
+  },
+  "326": {
+    "inputs": {
+      "image": "ChatGPT Image 2026年6月26日 15_52_06 (1).png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Optional Input Image"
+    }
+  },
+  "327": {
+    "inputs": {
+      "prompt": [
+        "303",
+        0
+      ],
+      "clip": [
+        "321",
+        1
+      ],
+      "vae": [
+        "321",
+        2
+      ],
+      "image1": [
+        "326",
+        0
+      ],
+      "image2": [
+        "325",
+        0
+      ]
+    },
+    "class_type": "TextEncodeQwenImageEditPlus",
+    "_meta": {
+      "title": "TextEncodeQwenImageEditPlus Input Prompt"
+    }
+  }
+}

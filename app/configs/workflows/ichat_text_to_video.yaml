@@ -1,0 +1,41 @@
+id: ichat_text_to_video
+name: iChat Text to Video
+template: ../../../workflows/ichat_text_to_video.json
+template_format: api
+mode: text_to_video
+output_kind: video
+timeout_sec: 1800
+required: [prompt]
+defaults:
+  seed: -1
+  width: 720
+  height: 1280
+  fps: 24
+bindings:
+  - node: "273"
+    input: filename_prefix
+    param: output_prefix
+  - node: "274"
+    input: noise_seed
+    param: seed
+  - node: "275"
+    input: noise_seed
+    param: seed
+  - node: "299"
+    input: value
+    param: height
+  - node: "300"
+    input: value
+    param: fps
+  - node: "301"
+    input: value
+    param: length_frames
+  - node: "303"
+    input: value
+    param: prompt
+  - node: "314"
+    input: value
+    param: width
+  - node: "315"
+    input: text
+    param: negative_prompt

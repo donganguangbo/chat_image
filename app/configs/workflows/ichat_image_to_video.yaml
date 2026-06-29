@@ -1,0 +1,64 @@
+id: ichat_image_to_video
+name: iChat Image to Video
+template: ../../../workflows/ichat_image_to_video.json
+template_format: api
+mode: i2v
+output_kind: video
+timeout_sec: 1800
+required: [prompt, input_image]
+defaults:
+  seed: -1
+  steps: 4
+  cfg: 1
+  width: 576
+  height: 720
+  fps: 24
+bindings:
+  - node: "273"
+    input: filename_prefix
+    param: output_prefix
+  - node: "274"
+    input: noise_seed
+    param: seed
+  - node: "275"
+    input: noise_seed
+    param: seed
+  - node: "299"
+    input: value
+    param: height
+  - node: "300"
+    input: value
+    param: fps
+  - node: "301"
+    input: value
+    param: length_frames
+  - node: "303"
+    input: value
+    param: prompt
+  - node: "314"
+    input: value
+    param: width
+  - node: "315"
+    input: text
+    param: negative_prompt
+  - node: "319"
+    input: seed
+    param: seed
+  - node: "319"
+    input: steps
+    param: steps
+  - node: "319"
+    input: cfg
+    param: cfg
+  - node: "323"
+    input: prompt
+    param: negative_prompt
+  - node: "325"
+    input: image
+    param: input_image
+  - node: "326"
+    input: image
+    param: input_image
+  - node: "325"
+    input: image
+    param: input_image_end

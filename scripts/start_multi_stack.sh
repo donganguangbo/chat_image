@@ -14,7 +14,7 @@ LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-4096}"
 LLAMA_NGL="${LLAMA_NGL:-999}"
 LLAMA_NO_CACHE_PROMPT="${LLAMA_NO_CACHE_PROMPT:-1}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
-COMFY_PORTS="${COMFY_PORTS:-6006 6007}"
+COMFY_PORTS="${COMFY_PORTS:-6006 6009}"
 
 # Comfy template source (read-only source tree)
 COMFY_ROOT="${COMFY_ROOT:-$PROJECT_ROOT/ComfyUI}"
@@ -80,18 +80,31 @@ kill_by_pattern() {
   fi
 }
 
-kill_by_port() {
+list_port_pids() {
   local port="$1"
   if command -v lsof >/dev/null 2>&1; then
-    mapfile -t pids < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
+    lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true
+  fi
+  if command -v ss >/dev/null 2>&1; then
+    ss -H -ltnp "sport = :$port" 2>/dev/null | sed -nE 's/.*pid=([0-9]+).*/\1/p' || true
+  fi
+}
+
+kill_by_port() {
+  local port="$1"
+  local -a pids
+  mapfile -t pids < <(list_port_pids "$port" | sort -u)
+  if [[ "${#pids[@]}" -gt 0 ]]; then
+    kill "${pids[@]}" 2>/dev/null || true
+    sleep 1
+    mapfile -t pids < <(list_port_pids "$port" | sort -u)
     if [[ "${#pids[@]}" -gt 0 ]]; then
-      kill "${pids[@]}" 2>/dev/null || true
-      sleep 1
-      mapfile -t pids < <(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)
-      if [[ "${#pids[@]}" -gt 0 ]]; then
-        kill -9 "${pids[@]}" 2>/dev/null || true
-      fi
+      kill -9 "${pids[@]}" 2>/dev/null || true
     fi
+  elif command -v fuser >/dev/null 2>&1; then
+    fuser -k -TERM -n tcp "$port" >/dev/null 2>&1 || true
+    sleep 1
+    fuser -k -KILL -n tcp "$port" >/dev/null 2>&1 || true
   fi
 }
 
