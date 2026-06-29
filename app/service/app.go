@@ -60,9 +60,8 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 		log.Fatal("no comfy backends configured (set COMFY_URL or COMFY_URLS)")
 	}
 	workerCount := envInt("GO_WORKERS", len(comfyPool.URLs()))
-	// S3 credentials come from the environment (S3_ACCESS_KEY / S3_SECRET_KEY),
-	// never from service.yaml, so secrets stay out of the repo. Endpoint/region/
-	// bucket live in service.yaml but env vars may override them too.
+	// S3 config may live in service.yaml; env vars override it for deploys that
+	// keep secrets outside the repo.
 	s3cfg := serviceCfg.S3
 	if v := env("S3_ENDPOINT", ""); v != "" {
 		s3cfg.Endpoint = v
