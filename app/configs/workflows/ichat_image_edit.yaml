@@ -1,0 +1,34 @@
+id: ichat_image_edit
+name: iChat Image Edit
+template: ../../../workflows/comfy_ui/ichat_image_edit.json
+template_format: api
+mode: t2i
+output_kind: image
+timeout_sec: 1800
+required: [prompt, input_image]
+defaults:
+  seed: -1
+  steps: 4
+  cfg: 1
+bindings:
+  - node: "2"
+    input: seed
+    param: seed
+  - node: "2"
+    input: steps
+    param: steps
+  - node: "2"
+    input: cfg
+    param: cfg
+  - node: "3"
+    input: prompt
+    param: prompt
+  - node: "4"
+    input: prompt
+    param: negative_prompt
+  - node: "7"
+    input: image
+    param: input_image
+  - node: "8"
+    input: image
+    param: input_image

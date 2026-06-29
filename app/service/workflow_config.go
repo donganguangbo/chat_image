@@ -129,7 +129,7 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 
 	check := func(category, workflowID string) error {
 		if workflowID == "" {
-			return fmt.Errorf("service config missing workflow for category %s", category)
+			return nil
 		}
 		if _, ok := workflows[workflowID]; !ok {
 			return fmt.Errorf("service config category %s points to unknown workflow_id=%s", category, workflowID)

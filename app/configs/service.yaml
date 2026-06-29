@@ -2,7 +2,8 @@ expose_workflow_catalog: false
 expose_raw_task_create: false
 storage_mode: s3
 
-default_workflows: {}
+default_workflows:
+  image_edit: ichat_image_edit
 
 s3:
   endpoint: us-ord-10.linodeobjects.com
