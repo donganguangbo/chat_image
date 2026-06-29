@@ -4,10 +4,17 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-UI_PORT="${UI_PORT:-6006}"
 GO_PORT="${GO_PORT:-6008}"
+LLAMA_BIN="${LLAMA_BIN:-/opt/llama.cpp/build/bin/llama-server}"
+LLAMA_HOST="${LLAMA_HOST:-127.0.0.1}"
+LLAMA_PORT="${LLAMA_PORT:-8000}"
+LLAMA_MODEL="${LLAMA_MODEL:-$PROJECT_ROOT/models/llama/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf}"
+LLAMA_MMPROJ="${LLAMA_MMPROJ:-$PROJECT_ROOT/models/llama/mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf}"
+LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-4096}"
+LLAMA_NGL="${LLAMA_NGL:-999}"
+LLAMA_NO_CACHE_PROMPT="${LLAMA_NO_CACHE_PROMPT:-1}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
-COMFY_PORTS="${COMFY_PORTS:-8188 8189}"
+COMFY_PORTS="${COMFY_PORTS:-6006 6007}"
 
 # Comfy template source (read-only source tree)
 COMFY_ROOT="${COMFY_ROOT:-$PROJECT_ROOT/ComfyUI}"
@@ -24,6 +31,7 @@ COMFY_SYNC_APP="${COMFY_SYNC_APP:-0}"            # 1 => rsync template app into 
 COMFY_SYNC_VENV="${COMFY_SYNC_VENV:-0}"          # 1 => rebuild isolated venvs on startup
 
 CONFIGURE_COMFY_PATHS="${CONFIGURE_COMFY_PATHS:-1}"
+LLAMA_WAIT_SEC="${LLAMA_WAIT_SEC:-600}"
 COMFY_WAIT_SEC="${COMFY_WAIT_SEC:-120}"
 GO_WAIT_SEC="${GO_WAIT_SEC:-60}"
 
@@ -215,6 +223,9 @@ prepare_comfy_instance() {
 
 [[ -f "$COMFY_ROOT/main.py" ]] || die "ComfyUI not found: $COMFY_ROOT/main.py"
 [[ -x "$PYTHON_BIN" ]] || die "Python not executable: $PYTHON_BIN"
+[[ -x "$LLAMA_BIN" ]] || die "llama-server not executable: $LLAMA_BIN"
+[[ -f "$LLAMA_MODEL" ]] || die "llama model not found: $LLAMA_MODEL"
+[[ -z "$LLAMA_MMPROJ" || -f "$LLAMA_MMPROJ" ]] || die "llama mmproj not found: $LLAMA_MMPROJ"
 command -v "$GO_BIN" >/dev/null 2>&1 || die "Go not found: $GO_BIN"
 if [[ "$COMFY_ISOLATED" == "1" ]]; then
   command -v rsync >/dev/null 2>&1 || die "rsync is required when COMFY_ISOLATED=1"
@@ -225,12 +236,16 @@ BASE_VENV_DIR="$(cd "$(dirname "$PYTHON_BIN")/.." && pwd)"
 
 # Parse comfy ports
 IFS=' ' read -r -a configured_comfy_ports <<<"$COMFY_PORTS"
-comfy_ports=("$UI_PORT")
+comfy_ports=()
 for p in "${configured_comfy_ports[@]}"; do
-  [[ -n "$p" && "$p" != "$UI_PORT" ]] && comfy_ports+=("$p")
+  [[ -n "$p" ]] && comfy_ports+=("$p")
 done
 (( ${#comfy_ports[@]} >= 1 )) || die "COMFY_PORTS is empty"
-[[ "$UI_PORT" != "$GO_PORT" ]] || die "UI_PORT and GO_PORT must be different"
+[[ "$LLAMA_PORT" != "$GO_PORT" ]] || die "LLAMA_PORT and GO_PORT must be different"
+for p in "${comfy_ports[@]}"; do
+  [[ "$p" != "$GO_PORT" ]] || die "COMFY_PORTS contains GO_PORT: $p"
+  [[ "$p" != "$LLAMA_PORT" ]] || die "COMFY_PORTS contains LLAMA_PORT: $p"
+done
 
 # Default: go uses all comfy backends in COMFY_PORTS
 if [[ -z "${GO_COMFY_URLS:-}" ]]; then
@@ -246,30 +261,32 @@ if [[ -z "$GO_WORKERS" ]] || ! [[ "$GO_WORKERS" =~ ^[0-9]+$ ]] || (( GO_WORKERS 
   GO_WORKERS=1
 fi
 I2V_TRIM_HEAD_SEC="${I2V_TRIM_HEAD_SEC:-${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}}"
+LLAMA_HEALTH_URL="${LLAMA_HEALTH_URL:-http://127.0.0.1:${LLAMA_PORT}/health}"
 
-echo "[1/6] stopping old processes..."
+echo "[1/8] stopping old processes..."
 kill_by_pattern "[g]o run ."
+kill_by_pattern "[l]lama-server .*--port ${LLAMA_PORT}"
 for p in "${comfy_ports[@]}"; do
   kill_by_pattern "[m]ain.py --listen .*--port ${p}"
 done
-kill_by_port "$UI_PORT"
+kill_by_port "$LLAMA_PORT"
 kill_by_port "$GO_PORT"
 for p in "${comfy_ports[@]}"; do
   kill_by_port "$p"
 done
 
 if [[ "$COMFY_ISOLATED" == "1" ]]; then
-  echo "[2/6] preparing isolated Comfy instances..."
+  echo "[2/8] preparing isolated Comfy instances..."
   mkdir -p "$ISOLATED_ROOT"
   for p in "${comfy_ports[@]}"; do
     prepare_comfy_instance "$p"
   done
 else
-  echo "[2/6] isolated mode disabled (legacy shared Comfy root)"
+  echo "[2/8] isolated mode disabled (legacy shared Comfy root)"
 fi
 
 if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
-  echo "[3/6] configuring Comfy model paths..."
+  echo "[3/8] configuring Comfy model paths..."
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
     for p in "${comfy_ports[@]}"; do
       configure_comfy_paths "$PROJECT_ROOT/models" "${COMFY_APP_ROOTS[$p]}"
@@ -278,10 +295,38 @@ if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
     configure_comfy_paths "$PROJECT_ROOT/models" "$COMFY_ROOT"
   fi
 else
-  echo "[3/6] skip model path configure"
+  echo "[3/8] skip model path configure"
 fi
 
-echo "[4/6] starting ComfyUI backends..."
+echo "[4/8] starting llama..."
+llama_log="$LOG_DIR/llama_${timestamp}.log"
+llama_args=(
+  -m "$LLAMA_MODEL"
+  --host "$LLAMA_HOST"
+  --port "$LLAMA_PORT"
+  -c "$LLAMA_CTX_SIZE"
+  -ngl "$LLAMA_NGL"
+)
+if [[ -n "$LLAMA_MMPROJ" ]]; then
+  llama_args+=(--mmproj "$LLAMA_MMPROJ")
+fi
+if [[ "$LLAMA_NO_CACHE_PROMPT" == "1" ]]; then
+  llama_args+=(--no-cache-prompt)
+fi
+if [[ -n "${LLAMA_EXTRA_ARGS:-}" ]]; then
+  read -r -a extra_llama_args <<<"$LLAMA_EXTRA_ARGS"
+  llama_args+=("${extra_llama_args[@]}")
+fi
+nohup "$LLAMA_BIN" "${llama_args[@]}" >"$llama_log" 2>&1 &
+echo $! > "$RUN_DIR/llama.pid"
+
+echo "[5/8] waiting llama health..."
+wait_http_ok "$LLAMA_HEALTH_URL" "$LLAMA_WAIT_SEC" "llama" || {
+  tail -n 120 "$llama_log" || true
+  die "llama boot failed"
+}
+
+echo "[6/8] starting ComfyUI backends..."
 for p in "${comfy_ports[@]}"; do
   log_file="$LOG_DIR/comfy_${p}_${timestamp}.log"
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
@@ -314,7 +359,7 @@ for p in "${comfy_ports[@]}"; do
   fi
 done
 
-echo "[5/6] waiting ComfyUI health..."
+echo "[7/8] waiting ComfyUI health..."
 for p in "${comfy_ports[@]}"; do
   wait_http_ok "http://127.0.0.1:${p}/system_stats" "$COMFY_WAIT_SEC" "comfy:${p}" || {
     tail -n 120 "$LOG_DIR/comfy_${p}_${timestamp}.log" || true
@@ -322,7 +367,7 @@ for p in "${comfy_ports[@]}"; do
   }
 done
 
-echo "[6/6] starting go gateway (multi comfy load-balance)..."
+echo "[8/8] starting go gateway (multi comfy load-balance)..."
 go_log="$LOG_DIR/go_gateway_${timestamp}.log"
 nohup env LISTEN_ADDR=":${GO_PORT}" \
   WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/app/configs/workflows" \
@@ -330,7 +375,7 @@ nohup env LISTEN_ADDR=":${GO_PORT}" \
   OUTPUT_DIR="/root/autodl-fs" \
   S3_ACCESS_KEY="${S3_ACCESS_KEY:-}" \
   S3_SECRET_KEY="${S3_SECRET_KEY:-}" \
-  TEXT_BASE_URL="${TEXT_BASE_URL:-}" \
+  TEXT_BASE_URL="${TEXT_BASE_URL:-http://127.0.0.1:${LLAMA_PORT}}" \
   TEXT_MODEL="${TEXT_MODEL:-}" \
   TEXT_API_KEY="${TEXT_API_KEY:-}" \
   COMFY_URLS="$GO_COMFY_URLS" \
@@ -345,6 +390,7 @@ wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" |
 
 echo ""
 echo "[ok] all services started"
+echo "Llama:       http://127.0.0.1:${LLAMA_PORT}/health"
 echo "ComfyUI UI:  http://127.0.0.1:${comfy_ports[0]}/"
 echo "Go Health:   http://127.0.0.1:${GO_PORT}/healthz"
 echo "Go->Comfys:  ${GO_COMFY_URLS}"

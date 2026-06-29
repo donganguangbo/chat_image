@@ -115,6 +115,7 @@ func loadServiceConfig(configPath string, workflows map[string]WorkflowConfig) (
 	}
 	cfg.ExposeWorkflowCatalog = fileCfg.ExposeWorkflowCatalog
 	cfg.ExposeRawTaskCreate = fileCfg.ExposeRawTaskCreate
+	cfg.GatewaySecret = strings.TrimSpace(fileCfg.GatewaySecret)
 	storageMode, err := NormalizeStorageMode(fileCfg.StorageMode)
 	if err != nil {
 		return cfg, err

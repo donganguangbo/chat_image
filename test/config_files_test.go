@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"chat_image/app/model"
 	"gopkg.in/yaml.v3"
 )
 
@@ -58,5 +59,15 @@ func TestDefaultWorkflowConfigFilesExist(t *testing.T) {
 		if _, ok := workflowFiles[workflowID]; !ok {
 			t.Fatalf("default_workflows.%s points to missing workflow %q", category, workflowID)
 		}
+	}
+}
+
+func TestServiceConfigParsesGatewaySecret(t *testing.T) {
+	var cfg model.ServiceConfig
+	if err := yaml.Unmarshal([]byte("gateway_secret: test-secret\nstorage_mode: s3\n"), &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if cfg.GatewaySecret != "test-secret" {
+		t.Fatalf("gateway_secret = %q", cfg.GatewaySecret)
 	}
 }

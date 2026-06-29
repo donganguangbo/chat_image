@@ -1,6 +1,8 @@
 expose_workflow_catalog: false
 expose_raw_task_create: false
 storage_mode: s3
+# HMAC shared secret for gateway requests. Env GATEWAY_SECRET overrides this.
+gateway_secret: ""
 
 default_workflows:
   image_edit: ichat_image_edit

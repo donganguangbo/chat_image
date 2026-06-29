@@ -21,14 +21,6 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	listenAddr := env("LISTEN_ADDR", ":8090")
 	outputDir := env("OUTPUT_DIR", "./outputs")
 
-	// HMAC shared secret is required. Without it every request is rejected as
-	// unauthorized — no silent fall-through to an unprotected gateway. Generate one
-	// with `openssl rand -hex 32` and share it between gateway and chat-web.
-	gatewaySecret := strings.TrimSpace(env("GATEWAY_SECRET", ""))
-	if gatewaySecret == "" {
-		log.Fatal("GATEWAY_SECRET is required (set a strong random string, e.g. `openssl rand -hex 32`)")
-	}
-
 	absConfigDir, _ := filepath.Abs(configDir)
 	absServiceConfigFile, _ := filepath.Abs(serviceConfigFile)
 	absOutputDir, _ := filepath.Abs(outputDir)
@@ -44,6 +36,15 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	serviceCfg, err := loadServiceConfig(absServiceConfigFile, workflows)
 	if err != nil {
 		log.Fatalf("load service config failed: %v", err)
+	}
+	// HMAC shared secret is required. Env still wins, but service.yaml may carry
+	// the deploy-time value so scripts don't have to pass it every run.
+	gatewaySecret := strings.TrimSpace(serviceCfg.GatewaySecret)
+	if v := strings.TrimSpace(env("GATEWAY_SECRET", "")); v != "" {
+		gatewaySecret = v
+	}
+	if gatewaySecret == "" {
+		log.Fatal("gateway_secret is required in service config or GATEWAY_SECRET env")
 	}
 	log.Printf(
 		"category defaults: t2i=%s edit=%s t2v=%s i2v=%s",
