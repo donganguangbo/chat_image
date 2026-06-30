@@ -1,11 +1,13 @@
 package test
 
 import (
+	"bufio"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"chat_image/app/api"
 	"chat_image/app/service"
@@ -79,5 +81,59 @@ func TestV1ChatCompletionsRequiresTextBackend(t *testing.T) {
 	rec := performTextRequest(t, s, `{"messages":[{"role":"user","content":"hi"}]}`)
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusServiceUnavailable, rec.Body.String())
+	}
+}
+
+func TestV1ChatCompletionsStreamsBackendEvents(t *testing.T) {
+	releaseBackend := make(chan struct{})
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer r.Body.Close()
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("data: one\n\n"))
+		w.(http.Flusher).Flush()
+		<-releaseBackend
+		_, _ = w.Write([]byte("data: [DONE]\n\n"))
+	}))
+	defer backend.Close()
+	defer close(releaseBackend)
+
+	s := service.NewServer(
+		map[string]service.WorkflowConfig{},
+		nil,
+		service.ServiceConfig{Text: service.TextConfig{BaseURL: backend.URL, Model: "qwen-local"}},
+		1,
+		"",
+		nil,
+	)
+	mux := http.NewServeMux()
+	api.Register(mux, s, t.TempDir(), service.StorageModeLocal)
+	gateway := httptest.NewServer(mux)
+	defer gateway.Close()
+
+	req, err := http.NewRequest(http.MethodPost, gateway.URL+"/v1/chat/completions", strings.NewReader(`{"stream":true,"messages":[{"role":"user","content":"hi"}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: time.Second}).Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	lineCh := make(chan string, 1)
+	go func() {
+		line, _ := bufio.NewReader(resp.Body).ReadString('\n')
+		lineCh <- line
+	}()
+
+	select {
+	case line := <-lineCh:
+		if strings.TrimSpace(line) != "data: one" {
+			t.Fatalf("first stream line = %q", line)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first stream event")
 	}
 }

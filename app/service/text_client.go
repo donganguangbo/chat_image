@@ -26,7 +26,7 @@ func (e TextBackendError) Error() string {
 	return fmt.Sprintf("text backend failed: status=%d body=%s", e.Status, e.Body)
 }
 
-func (s *Server) CreateTextCompletion(ctx context.Context, payload map[string]any) ([]byte, error) {
+func (s *Server) TextCompletionResponse(ctx context.Context, payload map[string]any) (*http.Response, error) {
 	cfg := s.service.Text
 	baseURL := strings.TrimRight(strings.TrimSpace(cfg.BaseURL), "/")
 	if baseURL == "" {
@@ -61,13 +61,26 @@ func (s *Server) CreateTextCompletion(ctx context.Context, payload map[string]an
 	if err != nil {
 		return nil, err
 	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		defer resp.Body.Close()
+		body, err := io.ReadAll(io.LimitReader(resp.Body, maxRequestBody))
+		if err != nil {
+			return nil, err
+		}
+		return nil, TextBackendError{Status: resp.StatusCode, Body: strings.TrimSpace(string(body))}
+	}
+	return resp, nil
+}
+
+func (s *Server) CreateTextCompletion(ctx context.Context, payload map[string]any) ([]byte, error) {
+	resp, err := s.TextCompletionResponse(ctx, payload)
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxRequestBody))
 	if err != nil {
 		return nil, err
-	}
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, TextBackendError{Status: resp.StatusCode, Body: strings.TrimSpace(string(body))}
 	}
 	return body, nil
 }
