@@ -28,8 +28,10 @@ func TestDownloadOutputsFiltersByOutputKind(t *testing.T) {
 		WorkflowConfig{ID: "wf", Mode: "i2v", OutputKind: "video"},
 		map[string]any{
 			"outputs": map[string]any{
-				"1": map[string]any{"images": []any{map[string]any{"filename": "preview.avif", "type": "output"}}},
-				"2": map[string]any{"videos": []any{map[string]any{"filename": "final.mp4", "type": "output"}}},
+				"1": map[string]any{"images": []any{
+					map[string]any{"filename": "preview.avif", "type": "output"},
+					map[string]any{"filename": "final.mp4", "type": "output"},
+				}},
 			},
 		},
 		nil,

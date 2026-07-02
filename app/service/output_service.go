@@ -41,6 +41,15 @@ func maxInt(a, b int) int {
 	return b
 }
 
+func isVideoOutputFilename(name string) bool {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".mp4", ".webm", ".mov", ".mkv", ".avi", ".gif":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg WorkflowConfig, historyEntry map[string]any, imageEditAfterNodeIDs []string) ([]TaskOutput, error) {
 	outputsAny, ok := historyEntry["outputs"].(map[string]any)
 	if !ok {
@@ -89,9 +98,6 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 		}
 		nodeID = strings.TrimSpace(nodeID)
 		for key, kind := range map[string]string{"images": "image", "videos": "video", "gifs": "video"} {
-			if wantKind != "" && kind != wantKind {
-				continue
-			}
 			if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) > 0 {
 				if _, ok := afterNodeSet[nodeID]; !ok {
 					continue
@@ -109,6 +115,13 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				if filename == "" {
 					continue
 				}
+				outputKind := kind
+				if kind == "image" && isVideoOutputFilename(filename) {
+					outputKind = "video"
+				}
+				if wantKind != "" && outputKind != wantKind {
+					continue
+				}
 				if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) == 0 {
 					marker := strings.ToLower(filename + " " + subfolder)
 					isAfter := strings.Contains(marker, "_after") &&
@@ -124,7 +137,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					continue
 				}
 
-				prepared, err := prepareGeneratedOutputContent(kind, filename, content, generatedOutputConverters{
+				prepared, err := prepareGeneratedOutputContent(outputKind, filename, content, generatedOutputConverters{
 					imageToAVIF:   convertImageBytesToAVIF,
 					videoToAV1MP4: convertVideoBytesToAV1MP4,
 				})
@@ -144,7 +157,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				targetName := fmt.Sprintf("%s_%s_%s%s", shortID(taskID), now.Format("150405"), safeBase, ext)
 				targetDir := imagesDir
 				urlPrefix := "/outputs/images/"
-				if kind == "video" {
+				if outputKind == "video" {
 					targetDir = videosDir
 					urlPrefix = "/outputs/videos/"
 				}
@@ -161,13 +174,13 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 					return nil, fmt.Errorf("write output %s: %w", targetPath, werr)
 				}
 				item := TaskOutput{
-					Kind:     kind,
+					Kind:     outputKind,
 					Filename: targetName,
 					URL:      urlPrefix + targetName,
 					Size:     size,
 				}
 				if storageMode == StorageModeS3 {
-					key := gatewayObjectKey(kind, targetName, now)
+					key := gatewayObjectKey(outputKind, targetName, now)
 					f, oerr := os.Open(targetPath)
 					if oerr != nil {
 						return nil, fmt.Errorf("open output %s for upload: %w", targetPath, oerr)
