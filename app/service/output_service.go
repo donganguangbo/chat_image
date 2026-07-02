@@ -81,6 +81,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 	}
 
 	var out []TaskOutput
+	wantKind := strings.TrimSpace(cfg.OutputKind)
 	for nodeID, nodeVal := range outputsAny {
 		nodeMap, ok := nodeVal.(map[string]any)
 		if !ok {
@@ -88,6 +89,9 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 		}
 		nodeID = strings.TrimSpace(nodeID)
 		for key, kind := range map[string]string{"images": "image", "videos": "video", "gifs": "video"} {
+			if wantKind != "" && kind != wantKind {
+				continue
+			}
 			if cfg.Mode == "image_edit" && kind == "image" && len(afterNodeSet) > 0 {
 				if _, ok := afterNodeSet[nodeID]; !ok {
 					continue
