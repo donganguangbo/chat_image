@@ -699,6 +699,18 @@
       "title": "K采样器"
     }
   },
+  "320": {
+    "inputs": {
+      "images": [
+        "318",
+        0
+      ]
+    },
+    "class_type": "PreviewImage",
+    "_meta": {
+      "title": "预览图像"
+    }
+  },
   "321": {
     "inputs": {
       "ckpt_name": "Qwen-Rapid-AIO-NSFW-v23.safetensors"
