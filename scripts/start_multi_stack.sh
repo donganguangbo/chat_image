@@ -273,7 +273,6 @@ GO_WORKERS="${GO_WORKERS:-${#comfy_ports[@]}}"
 if [[ -z "$GO_WORKERS" ]] || ! [[ "$GO_WORKERS" =~ ^[0-9]+$ ]] || (( GO_WORKERS < 1 )); then
   GO_WORKERS=1
 fi
-I2V_TRIM_HEAD_SEC="${I2V_TRIM_HEAD_SEC:-${GO_GATEWAY_I2V_TRIM_HEAD_SEC:-1}}"
 LLAMA_HEALTH_URL="${LLAMA_HEALTH_URL:-http://127.0.0.1:${LLAMA_PORT}/health}"
 
 echo "[1/8] stopping old processes..."
@@ -393,7 +392,6 @@ nohup env LISTEN_ADDR=":${GO_PORT}" \
   TEXT_API_KEY="${TEXT_API_KEY:-}" \
   COMFY_URLS="$GO_COMFY_URLS" \
   GO_WORKERS="$GO_WORKERS" \
-  GO_GATEWAY_I2V_TRIM_HEAD_SEC="$I2V_TRIM_HEAD_SEC" \
   bash -lc "cd \"$PROJECT_ROOT\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
 echo $! > "$RUN_DIR/go_gateway.pid"
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"time"
 )
@@ -94,42 +93,11 @@ func (s *Server) executeTask(taskID string) {
 			}
 		}
 	}
-	if cfg.Mode == "i2v" {
-		// i2v head-trim workaround: the first ~Ns of i2v output tends to
-		// contain morphing artifacts (e.g., anatomy growing in for coupled
-		// scenes that require a second person absent from the single-frame
-		// reference). We generate extra frames up front, then let the
-		// workflow's ImageFromBatch node drop the first N seconds.
-		// GO_GATEWAY_I2V_TRIM_HEAD_SEC accepts fractional seconds (e.g. 1.5).
-		trimHeadSec := envFloat("GO_GATEWAY_I2V_TRIM_HEAD_SEC", 0)
-		userDuration := getInt(params["duration_sec"], 0)
-		fps := getInt(params["fps"], 0)
-		if userDuration > 0 && fps > 0 {
-			trimHeadFramesPreVFI := int(math.Round(trimHeadSec * float64(fps)))
-			if trimHeadFramesPreVFI < 0 {
-				trimHeadFramesPreVFI = 0
-			}
-			if trimHeadFramesPreVFI > 0 {
-				// Set length_frames directly so generation includes the
-				// extra frames; the generic calculator below skips when
-				// length_frames is already present.
-				params["length_frames"] = userDuration*fps + trimHeadFramesPreVFI
-			}
-			params["output_trim_head_frames"] = trimHeadFramesPreVFI * 2
-			params["output_final_frames"] = userDuration * fps * 2
-		}
-	}
 	if _, ok := params["length_frames"]; !ok {
 		durationSec := getInt(params["duration_sec"], 0)
 		fps := getInt(params["fps"], 0)
 		if durationSec > 0 && fps > 0 {
 			params["length_frames"] = durationSec * fps
-		}
-	}
-	if _, ok := params["fps_x2"]; !ok {
-		fps := getInt(params["fps"], 0)
-		if fps > 0 {
-			params["fps_x2"] = float64(fps * 2)
 		}
 	}
 	for _, key := range []string{"input_image", "input_image_end"} {
