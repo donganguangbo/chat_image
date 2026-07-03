@@ -5,11 +5,13 @@ template_format: api
 mode: t2i
 output_kind: image
 timeout_sec: 1800
-required: [prompt, input_image]
+required: [prompt]
 defaults:
   seed: -1
   steps: 4
   cfg: 1
+  width: 1024
+  height: 1024
 bindings:
   - node: "2"
     input: seed
@@ -26,12 +28,9 @@ bindings:
   - node: "4"
     input: prompt
     param: negative_prompt
-  - node: "7"
-    input: image
-    param: input_image
-  - node: "8"
-    input: image
-    param: input_image
-  - node: "8"
-    input: image
-    param: input_image_end
+  - node: "25"
+    input: width
+    param: width
+  - node: "25"
+    input: height
+    param: height

@@ -39,14 +39,6 @@
       "vae": [
         "11",
         2
-      ],
-      "image1": [
-        "7",
-        0
-      ],
-      "image2": [
-        "8",
-        0
       ]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
@@ -99,24 +91,6 @@
       "title": "预览图像"
     }
   },
-  "7": {
-    "inputs": {
-      "image": "HKUfrona8AAd-02.jpeg"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Optional Input Image"
-    }
-  },
-  "8": {
-    "inputs": {
-      "image": "991.JPG"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Optional Input Image"
-    }
-  },
   "11": {
     "inputs": {
       "ckpt_name": "Qwen-Rapid-AIO-NSFW-v23.safetensors"
@@ -126,28 +100,10 @@
       "title": "Checkpoint加载器（简易）"
     }
   },
-  "21": {
-    "inputs": {
-      "image": [
-        "7",
-        0
-      ]
-    },
-    "class_type": "GetImageSize",
-    "_meta": {
-      "title": "获取图像尺寸"
-    }
-  },
   "25": {
     "inputs": {
-      "width": [
-        "21",
-        0
-      ],
-      "height": [
-        "21",
-        1
-      ],
+      "width": 1024,
+      "height": 1024,
       "batch_size": 1
     },
     "class_type": "EmptySD3LatentImage",

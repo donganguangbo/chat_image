@@ -1,8 +1,10 @@
 package test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 
 	"chat_image/app/model"
@@ -69,5 +71,34 @@ func TestServiceConfigParsesGatewaySecret(t *testing.T) {
 	}
 	if cfg.GatewaySecret != "test-secret" {
 		t.Fatalf("gateway_secret = %q", cfg.GatewaySecret)
+	}
+}
+
+func TestImageEditWorkflowDoesNotRequireReferenceImages(t *testing.T) {
+	cfgRaw, err := os.ReadFile(filepath.Join("..", "app", "configs", "workflows", "ichat_image_edit.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg model.WorkflowConfig
+	if err := yaml.Unmarshal(cfgRaw, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if slices.Contains(cfg.Required, "input_image") {
+		t.Fatalf("image edit required = %v, want no input_image", cfg.Required)
+	}
+
+	workflowRaw, err := os.ReadFile(filepath.Join("..", "workflows", "ichat_image_edit.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var workflow map[string]map[string]any
+	if err := json.Unmarshal(workflowRaw, &workflow); err != nil {
+		t.Fatal(err)
+	}
+	for id, node := range workflow {
+		switch node["class_type"] {
+		case "LoadImage", "GetImageSize":
+			t.Fatalf("workflow still has reference image node %s: %s", id, node["class_type"])
+		}
 	}
 }
