@@ -95,10 +95,16 @@ func TestImageEditWorkflowDoesNotRequireReferenceImages(t *testing.T) {
 	if err := json.Unmarshal(workflowRaw, &workflow); err != nil {
 		t.Fatal(err)
 	}
+	hasSaveImage := false
 	for id, node := range workflow {
 		switch node["class_type"] {
 		case "LoadImage", "GetImageSize":
 			t.Fatalf("workflow still has reference image node %s: %s", id, node["class_type"])
+		case "SaveImage":
+			hasSaveImage = true
 		}
+	}
+	if !hasSaveImage {
+		t.Fatal("workflow must save the generated image")
 	}
 }

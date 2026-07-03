@@ -81,14 +81,15 @@
   },
   "6": {
     "inputs": {
+      "filename_prefix": "ICHAT_T2I",
       "images": [
         "5",
         0
       ]
     },
-    "class_type": "PreviewImage",
+    "class_type": "SaveImage",
     "_meta": {
-      "title": "预览图像"
+      "title": "保存图像"
     }
   },
   "11": {
