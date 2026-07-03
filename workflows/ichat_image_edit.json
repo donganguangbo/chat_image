@@ -39,6 +39,14 @@
       "vae": [
         "11",
         2
+      ],
+      "image1": [
+        "7",
+        0
+      ],
+      "image2": [
+        "8",
+        0
       ]
     },
     "class_type": "TextEncodeQwenImageEditPlus",
@@ -81,15 +89,32 @@
   },
   "6": {
     "inputs": {
-      "filename_prefix": "ICHAT_T2I",
       "images": [
         "5",
         0
       ]
     },
-    "class_type": "SaveImage",
+    "class_type": "PreviewImage",
     "_meta": {
-      "title": "保存图像"
+      "title": "预览图像"
+    }
+  },
+  "7": {
+    "inputs": {
+      "image": "HKUfrona8AAd-02.jpeg"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Optional Input Image"
+    }
+  },
+  "8": {
+    "inputs": {
+      "image": "991.JPG"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Optional Input Image"
     }
   },
   "11": {
@@ -101,10 +126,28 @@
       "title": "Checkpoint加载器（简易）"
     }
   },
+  "21": {
+    "inputs": {
+      "image": [
+        "7",
+        0
+      ]
+    },
+    "class_type": "GetImageSize",
+    "_meta": {
+      "title": "获取图像尺寸"
+    }
+  },
   "25": {
     "inputs": {
-      "width": 1024,
-      "height": 1024,
+      "width": [
+        "21",
+        0
+      ],
+      "height": [
+        "21",
+        1
+      ],
       "batch_size": 1
     },
     "class_type": "EmptySD3LatentImage",

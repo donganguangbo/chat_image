@@ -5,6 +5,7 @@ storage_mode: s3
 gateway_secret: ""
 
 default_workflows:
+  text_to_image: ichat_text_to_image
   image_edit: ichat_image_edit
   text_to_video: ichat_text_to_video
   image_to_video: ichat_image_to_video

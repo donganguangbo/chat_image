@@ -1,0 +1,36 @@
+id: ichat_text_to_image
+name: iChat Text To Image
+template: ../../../workflows/ichat_text_to_image.json
+template_format: api
+mode: t2i
+output_kind: image
+timeout_sec: 1800
+required: [prompt]
+defaults:
+  seed: -1
+  steps: 4
+  cfg: 1
+  width: 1024
+  height: 1024
+bindings:
+  - node: "2"
+    input: seed
+    param: seed
+  - node: "2"
+    input: steps
+    param: steps
+  - node: "2"
+    input: cfg
+    param: cfg
+  - node: "3"
+    input: prompt
+    param: prompt
+  - node: "4"
+    input: prompt
+    param: negative_prompt
+  - node: "25"
+    input: width
+    param: width
+  - node: "25"
+    input: height
+    param: height
