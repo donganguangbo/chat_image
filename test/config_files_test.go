@@ -111,6 +111,13 @@ func TestImageEditWorkflowKeepsReferenceImages(t *testing.T) {
 	if !hasLoadImage || !hasGetImageSize {
 		t.Fatalf("image edit workflow must keep reference image nodes (LoadImage=%v GetImageSize=%v)", hasLoadImage, hasGetImageSize)
 	}
+	latent, ok := workflow["25"]["inputs"].(map[string]any)
+	if !ok {
+		t.Fatal("image edit workflow node 25 inputs missing")
+	}
+	if latent["width"] != float64(576) || latent["height"] != float64(720) {
+		t.Fatalf("image edit workflow node 25 default size = %vx%v, want 576x720", latent["width"], latent["height"])
+	}
 }
 
 func hasBinding(cfg model.WorkflowConfig, nodeID string, input string, param string) bool {
