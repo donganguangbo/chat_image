@@ -86,6 +86,9 @@ func TestImageEditWorkflowKeepsReferenceImages(t *testing.T) {
 	if !slices.Contains(cfg.Required, "input_image") {
 		t.Fatalf("image edit required = %v, want input_image", cfg.Required)
 	}
+	if !hasBinding(cfg, "25", "width", "width") || !hasBinding(cfg, "25", "height", "height") {
+		t.Fatalf("image edit bindings must pass requested width/height into node 25: %+v", cfg.Bindings)
+	}
 
 	workflowRaw, err := os.ReadFile(filepath.Join("..", "workflows", "ichat_image_edit.json"))
 	if err != nil {
@@ -108,6 +111,15 @@ func TestImageEditWorkflowKeepsReferenceImages(t *testing.T) {
 	if !hasLoadImage || !hasGetImageSize {
 		t.Fatalf("image edit workflow must keep reference image nodes (LoadImage=%v GetImageSize=%v)", hasLoadImage, hasGetImageSize)
 	}
+}
+
+func hasBinding(cfg model.WorkflowConfig, nodeID string, input string, param string) bool {
+	for _, binding := range cfg.Bindings {
+		if binding.Node == nodeID && binding.Input == input && binding.Param == param {
+			return true
+		}
+	}
+	return false
 }
 
 func TestTextToImageWorkflowHasNoReferenceImages(t *testing.T) {

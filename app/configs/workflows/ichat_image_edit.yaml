@@ -35,3 +35,9 @@ bindings:
   - node: "8"
     input: image
     param: input_image_end
+  - node: "25"
+    input: width
+    param: width
+  - node: "25"
+    input: height
+    param: height
