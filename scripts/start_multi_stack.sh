@@ -80,6 +80,25 @@ kill_by_pattern() {
   fi
 }
 
+kill_by_pid_file() {
+  local file="$1"
+  [[ -f "$file" ]] || return 0
+  local pid
+  pid="$(cat "$file" 2>/dev/null || true)"
+  [[ "$pid" =~ ^[0-9]+$ ]] || {
+    rm -f "$file"
+    return 0
+  }
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+    sleep 1
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  fi
+  rm -f "$file"
+}
+
 list_port_pids() {
   local port="$1"
   if command -v lsof >/dev/null 2>&1; then
@@ -87,6 +106,46 @@ list_port_pids() {
   fi
   if command -v ss >/dev/null 2>&1; then
     ss -H -ltnp "sport = :$port" 2>/dev/null | sed -nE 's/.*pid=([0-9]+).*/\1/p' || true
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    python3 - "$port" <<'PY' 2>/dev/null || true
+import os, sys
+
+port = int(sys.argv[1])
+inodes = set()
+for table in ("/proc/net/tcp", "/proc/net/tcp6"):
+    try:
+        lines = open(table).read().splitlines()[1:]
+    except OSError:
+        continue
+    for line in lines:
+        parts = line.split()
+        local = parts[1]
+        state = parts[3]
+        inode = parts[9]
+        if state != "0A":
+            continue
+        if int(local.rsplit(":", 1)[1], 16) == port:
+            inodes.add(inode)
+
+seen = set()
+for name in os.listdir("/proc"):
+    if not name.isdigit():
+        continue
+    fd_dir = f"/proc/{name}/fd"
+    try:
+        fds = os.listdir(fd_dir)
+    except OSError:
+        continue
+    for fd in fds:
+        try:
+            target = os.readlink(f"{fd_dir}/{fd}")
+        except OSError:
+            continue
+        if target.startswith("socket:[") and target[8:-1] in inodes and name not in seen:
+            seen.add(name)
+            print(name)
+PY
   fi
 }
 
@@ -276,9 +335,12 @@ fi
 LLAMA_HEALTH_URL="${LLAMA_HEALTH_URL:-http://127.0.0.1:${LLAMA_PORT}/health}"
 
 echo "[1/8] stopping old processes..."
+kill_by_pid_file "$RUN_DIR/go_gateway.pid"
+kill_by_pid_file "$RUN_DIR/llama.pid"
 kill_by_pattern "[g]o run ."
 kill_by_pattern "[l]lama-server .*--port ${LLAMA_PORT}"
 for p in "${comfy_ports[@]}"; do
+  kill_by_pid_file "$RUN_DIR/comfy_${p}.pid"
   kill_by_pattern "[m]ain.py --listen .*--port ${p}"
 done
 kill_by_port "$LLAMA_PORT"
@@ -381,6 +443,8 @@ done
 
 echo "[8/8] starting go gateway (multi comfy load-balance)..."
 go_log="$LOG_DIR/go_gateway_${timestamp}.log"
+go_gateway_bin="$RUN_DIR/go_gateway"
+"$GO_BIN" build -o "$go_gateway_bin" .
 nohup env LISTEN_ADDR=":${GO_PORT}" \
   WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/app/configs/workflows" \
   SERVICE_CONFIG_FILE="$PROJECT_ROOT/app/configs/service.yaml" \
@@ -392,7 +456,7 @@ nohup env LISTEN_ADDR=":${GO_PORT}" \
   TEXT_API_KEY="${TEXT_API_KEY:-}" \
   COMFY_URLS="$GO_COMFY_URLS" \
   GO_WORKERS="$GO_WORKERS" \
-  bash -lc "cd \"$PROJECT_ROOT\" && \"$GO_BIN\" run ." >"$go_log" 2>&1 &
+  "$go_gateway_bin" >"$go_log" 2>&1 &
 echo $! > "$RUN_DIR/go_gateway.pid"
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {
   tail -n 120 "$go_log" || true

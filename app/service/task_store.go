@@ -45,14 +45,14 @@ func (s *Server) createTask(req CreateTaskRequest) (*Task, error) {
 	if req.NegativePrompt != "" {
 		params["negative_prompt"] = strings.TrimSpace(req.NegativePrompt)
 	}
+	for k, v := range req.Params {
+		params[k] = v
+	}
 	if req.Width > 0 {
 		params["width"] = req.Width
 	}
 	if req.Height > 0 {
 		params["height"] = req.Height
-	}
-	for k, v := range req.Params {
-		params[k] = v
 	}
 	if req.Width > 0 || req.Height > 0 {
 		_, sizeLongInReq := req.Params["size_long"]

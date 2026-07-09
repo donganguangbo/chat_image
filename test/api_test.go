@@ -111,6 +111,30 @@ func TestV1ImageEditRouteAcceptsMultipartImage(t *testing.T) {
 	}
 }
 
+func TestV1ImageEditRouteKeepsRequestedSize(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/images/edits", `{
+		"prompt": "edit it",
+		"size": "1024x1280",
+		"image_base64": "png bytes",
+		"params": {"width": 576, "height": 720}
+	}`, "application/json")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	task := s.GetTask(body.ID)
+	if task == nil || task.WorkflowID != "wf_edit" || intParam(task.Params["width"]) != 1024 || intParam(task.Params["height"]) != 1280 {
+		t.Fatalf("task = %+v", task)
+	}
+}
+
 func TestV1VideoRoutes(t *testing.T) {
 	s := newTestV1Server()
 	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{"prompt":"move","size":"1280x720","seconds":4}`, "application/json")
