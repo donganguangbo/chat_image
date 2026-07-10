@@ -1,115 +1,146 @@
 {
   "2": {
     "inputs": {
-      "seed": 65454653,
-      "steps": 4,
-      "cfg": 1,
-      "sampler_name": "sa_solver",
-      "scheduler": "beta",
-      "denoise": 1,
-      "model": [
-        "11",
-        0
-      ],
-      "positive": [
-        "3",
-        0
-      ],
-      "negative": [
-        "4",
-        0
-      ],
-      "latent_image": [
-        "25",
-        0
-      ]
+      "unet_name": "krea2_turbo_fp8_scaled.safetensors",
+      "weight_dtype": "default"
     },
-    "class_type": "KSampler",
+    "class_type": "UNETLoader",
     "_meta": {
-      "title": "K采样器"
-    }
-  },
-  "3": {
-    "inputs": {
-      "prompt": "",
-      "clip": [
-        "11",
-        1
-      ],
-      "vae": [
-        "11",
-        2
-      ]
-    },
-    "class_type": "TextEncodeQwenImageEditPlus",
-    "_meta": {
-      "title": "TextEncodeQwenImageEditPlus Input Prompt"
+      "title": "Krea2 Turbo"
     }
   },
   "4": {
     "inputs": {
-      "prompt": "",
-      "clip": [
-        "11",
-        1
-      ],
-      "vae": [
-        "11",
-        2
+      "enabled": true,
+      "strength": 1.5,
+      "debug": false,
+      "model": [
+        "2",
+        0
       ]
     },
-    "class_type": "TextEncodeQwenImageEditPlus",
+    "class_type": "ComfyUI-Krea2T-Enhancer",
     "_meta": {
-      "title": "TextEncodeQwenImageEditPlus Negative (leave blank)"
+      "title": "Krea2T Enhancer"
     }
   },
   "5": {
     "inputs": {
-      "samples": [
-        "2",
-        0
-      ],
-      "vae": [
-        "11",
-        2
-      ]
+      "vae_name": "qwen_image_vae.safetensors"
     },
-    "class_type": "VAEDecode",
+    "class_type": "VAELoader",
     "_meta": {
-      "title": "VAE解码"
+      "title": "Qwen Image VAE"
     }
   },
   "6": {
     "inputs": {
-      "filename_prefix": "ICHAT_T2I",
-      "images": [
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Qwen3VL Krea2 Text Encoder"
+    }
+  },
+  "11": {
+    "inputs": {
+      "width": 1080,
+      "height": 1920,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "Empty Latent"
+    }
+  },
+  "113": {
+    "inputs": {
+      "samples": [
+        "116",
+        0
+      ],
+      "vae": [
         "5",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode"
+    }
+  },
+  "114": {
+    "inputs": {
+      "conditioning": [
+        "115",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "Zero Negative Conditioning"
+    }
+  },
+  "115": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "6",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Prompt"
+    }
+  },
+  "116": {
+    "inputs": {
+      "eta": 0,
+      "sampler_name": "linear/euler",
+      "scheduler": "simple",
+      "steps": 8,
+      "steps_to_run": -1,
+      "denoise": 1,
+      "cfg": 1,
+      "seed": -1,
+      "sampler_mode": "standard",
+      "bongmath": true,
+      "model": [
+        "4",
+        0
+      ],
+      "positive": [
+        "115",
+        0
+      ],
+      "negative": [
+        "114",
+        0
+      ],
+      "latent_image": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "ClownsharKSampler_Beta",
+    "_meta": {
+      "title": "Krea2 Sampler"
+    }
+  },
+  "158": {
+    "inputs": {
+      "filename_prefix": "ICHAT_KREA2",
+      "images": [
+        "113",
         0
       ]
     },
     "class_type": "SaveImage",
     "_meta": {
-      "title": "保存图像"
-    }
-  },
-  "11": {
-    "inputs": {
-      "ckpt_name": "Qwen-Rapid-AIO-NSFW-v23.safetensors"
-    },
-    "class_type": "CheckpointLoaderSimple",
-    "_meta": {
-      "title": "Checkpoint加载器（简易）"
-    }
-  },
-  "25": {
-    "inputs": {
-      "width": 1024,
-      "height": 1024,
-      "batch_size": 1
-    },
-    "class_type": "EmptySD3LatentImage",
-    "_meta": {
-      "title": "空Latent图像（SD3）"
+      "title": "Save Image"
     }
   }
 }

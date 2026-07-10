@@ -141,6 +141,20 @@ func TestTextToImageWorkflowHasNoReferenceImages(t *testing.T) {
 	if slices.Contains(cfg.Required, "input_image") {
 		t.Fatalf("text to image required = %v, want no input_image", cfg.Required)
 	}
+	for _, want := range []struct {
+		node, input, param string
+	}{
+		{"115", "text", "prompt"},
+		{"116", "seed", "seed"},
+		{"116", "steps", "steps"},
+		{"116", "cfg", "cfg"},
+		{"11", "width", "width"},
+		{"11", "height", "height"},
+	} {
+		if !hasBinding(cfg, want.node, want.input, want.param) {
+			t.Fatalf("text to image missing binding %s.%s <- %s", want.node, want.input, want.param)
+		}
+	}
 
 	workflowRaw, err := os.ReadFile(filepath.Join("..", "workflows", "ichat_text_to_image.json"))
 	if err != nil {
@@ -150,16 +164,49 @@ func TestTextToImageWorkflowHasNoReferenceImages(t *testing.T) {
 	if err := json.Unmarshal(workflowRaw, &workflow); err != nil {
 		t.Fatal(err)
 	}
-	hasSaveImage := false
+	wantNodes := map[string]string{
+		"2":   "UNETLoader",
+		"4":   "ComfyUI-Krea2T-Enhancer",
+		"5":   "VAELoader",
+		"6":   "CLIPLoader",
+		"11":  "EmptyLatentImage",
+		"113": "VAEDecode",
+		"114": "ConditioningZeroOut",
+		"115": "CLIPTextEncode",
+		"116": "ClownsharKSampler_Beta",
+		"158": "SaveImage",
+	}
+	if len(workflow) != len(wantNodes) {
+		t.Fatalf("text to image workflow has %d nodes, want %d", len(workflow), len(wantNodes))
+	}
 	for id, node := range workflow {
 		switch node["class_type"] {
 		case "LoadImage", "GetImageSize":
 			t.Fatalf("text to image workflow still has reference image node %s: %s", id, node["class_type"])
-		case "SaveImage":
-			hasSaveImage = true
+		}
+		if node["class_type"] != wantNodes[id] {
+			t.Fatalf("text to image node %s class = %v, want %q", id, node["class_type"], wantNodes[id])
+		}
+		inputs, ok := node["inputs"].(map[string]any)
+		if !ok {
+			t.Fatalf("text to image node %s inputs missing", id)
+		}
+		for input, value := range inputs {
+			link, ok := value.([]any)
+			if !ok || len(link) != 2 {
+				continue
+			}
+			source, ok := link[0].(string)
+			if !ok {
+				continue
+			}
+			if _, ok := workflow[source]; !ok {
+				t.Fatalf("text to image node %s input %s links missing node %s", id, input, source)
+			}
 		}
 	}
-	if !hasSaveImage {
-		t.Fatal("text to image workflow must save the generated image")
+	unet := workflow["2"]["inputs"].(map[string]any)
+	if unet["unet_name"] != "krea2_turbo_fp8_scaled.safetensors" {
+		t.Fatalf("text to image model = %v", unet["unet_name"])
 	}
 }
