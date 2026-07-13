@@ -35,6 +35,8 @@ go mod tidy
 go run .
 ```
 
+服务器使用 Docker Compose 部署时，按 [docs/DOCKER_COMPOSE.md](docs/DOCKER_COMPOSE.md) 操作。
+
 多 Comfy 示例：
 
 ```bash

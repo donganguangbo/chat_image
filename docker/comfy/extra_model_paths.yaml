@@ -1,0 +1,18 @@
+chat_image_models:
+    base_path: /models
+    is_default: true
+    diffusion_models: |
+        diffusion_models
+        unet
+    loras: loras
+    vae: vae
+    text_encoders: text_encoders
+    checkpoints: checkpoints
+    clip: clip
+    clip_vision: clip_vision
+    controlnet: controlnet
+    pulid: pulid
+    embeddings: embeddings
+    upscale_models: upscale_models
+    latent_upscale_models: latent_upscale_models
+    model_patches: model_patches

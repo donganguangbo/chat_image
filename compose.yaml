@@ -1,0 +1,162 @@
+name: chat-image
+
+services:
+  llama:
+    image: ${LLAMA_IMAGE:-ghcr.io/ggml-org/llama.cpp:server-cuda}
+    command:
+      - -m
+      - /models/llama/${LLAMA_MODEL_FILE:-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf}
+      - --mmproj
+      - /models/llama/${LLAMA_MMPROJ_FILE:-mmproj-Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-f16.gguf}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - -c
+      - ${LLAMA_CTX_SIZE:-16384}
+      - -ngl
+      - ${LLAMA_NGL:-999}
+      - --no-cache-prompt
+    volumes:
+      - ./models:/models:ro
+    expose:
+      - "8000"
+    gpus: all
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 10m
+
+  comfy-6006:
+    build:
+      context: ./isolated/comfy_6006/app
+      dockerfile: ../../../docker/comfy/Dockerfile
+      args:
+        CUDA_IMAGE: ${COMFY_CUDA_IMAGE:-nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04}
+    command:
+      - python
+      - -u
+      - main.py
+      - --listen
+      - 0.0.0.0
+      - --port
+      - "6006"
+      - --input-directory
+      - /runtime/input
+      - --output-directory
+      - /runtime/output
+      - --temp-directory
+      - /runtime/temp
+      - --user-directory
+      - /runtime/user
+    environment:
+      HF_HOME: /hf-cache
+      PYTHONPYCACHEPREFIX: /runtime/pycache
+      TORCH_HOME: /runtime/cache/torch
+      XDG_CACHE_HOME: /runtime/cache
+    volumes:
+      - ./models:/models:ro
+      - ./hf_cache:/hf-cache
+      - ./isolated/comfy_6006/runtime:/runtime
+      - ./docker/comfy/extra_model_paths.yaml:/opt/ComfyUI/extra_model_paths.yaml:ro
+    ports:
+      - "${COMFY_BIND_ADDR:-0.0.0.0}:6006:6006"
+    gpus: all
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:6006/system_stats"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 5m
+
+  comfy-6009:
+    build:
+      context: ./isolated/comfy_6009/app
+      dockerfile: ../../../docker/comfy/Dockerfile
+      args:
+        CUDA_IMAGE: ${COMFY_CUDA_IMAGE:-nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04}
+    command:
+      - python
+      - -u
+      - main.py
+      - --listen
+      - 0.0.0.0
+      - --port
+      - "6009"
+      - --input-directory
+      - /runtime/input
+      - --output-directory
+      - /runtime/output
+      - --temp-directory
+      - /runtime/temp
+      - --user-directory
+      - /runtime/user
+    environment:
+      HF_HOME: /hf-cache
+      PYTHONPYCACHEPREFIX: /runtime/pycache
+      TORCH_HOME: /runtime/cache/torch
+      XDG_CACHE_HOME: /runtime/cache
+    volumes:
+      - ./models:/models:ro
+      - ./hf_cache:/hf-cache
+      - ./isolated/comfy_6009/runtime:/runtime
+      - ./docker/comfy/extra_model_paths.yaml:/opt/ComfyUI/extra_model_paths.yaml:ro
+    ports:
+      - "${COMFY_BIND_ADDR:-0.0.0.0}:6009:6009"
+    gpus: all
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:6009/system_stats"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 5m
+
+  go-gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway/Dockerfile
+    environment:
+      COMFY_URLS: http://comfy-6006:6006,http://comfy-6009:6009
+      GATEWAY_SECRET: ${GATEWAY_SECRET:-}
+      GO_WORKERS: ${GO_WORKERS:-2}
+      LISTEN_ADDR: :6008
+      OUTPUT_DIR: /outputs
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-ichat}
+      S3_ENDPOINT: ${S3_ENDPOINT:-us-ord-10.linodeobjects.com}
+      S3_REGION: ${S3_REGION:-us-ord-10}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      SERVICE_CONFIG_FILE: /app/app/configs/service.yaml
+      TEXT_API_KEY: ${TEXT_API_KEY:-}
+      TEXT_BASE_URL: http://llama:8000
+      TEXT_MODEL: ${TEXT_MODEL:-qwen-local}
+      WORKFLOW_CONFIG_DIR: /app/app/configs/workflows
+    volumes:
+      - ./app/configs:/app/app/configs:ro
+      - ./workflows:/app/workflows:ro
+      - ${OUTPUT_HOST_DIR:-./outputs}:/outputs
+    ports:
+      - "${GO_BIND_ADDR:-0.0.0.0}:6008:6008"
+    depends_on:
+      llama:
+        condition: service_healthy
+      comfy-6006:
+        condition: service_healthy
+      comfy-6009:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:6008/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
