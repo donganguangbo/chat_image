@@ -35,6 +35,9 @@ bindings:
   - node: "303"
     input: value
     param: prompt
+  - node: "328"
+    input: value
+    param: image_edit_prompt
   - node: "314"
     input: value
     param: width

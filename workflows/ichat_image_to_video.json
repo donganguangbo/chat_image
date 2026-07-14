@@ -424,7 +424,16 @@
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "Prompt"
+      "title": "Video Prompt"
+    }
+  },
+  "328": {
+    "inputs": {
+      "value": "1girl, solo, standing, simple background"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Reference Pose Prompt"
     }
   },
   "304": {
@@ -739,7 +748,7 @@
   },
   "323": {
     "inputs": {
-      "prompt": "(worst quality, low quality:1.4), (deformed, distorted, disfigured:1.5), poorly drawn, bad anatomy, weird anatomy, extra limbs, missing limbs, floating limbs, disconnected limbs, fused fingers, too many fingers, two legs, missing arm, (long neck:1.2), (bad hands:1.5), (bad feet:1.5), (bad face:1.5), (crooked eyes:1.2), (unfocused eyes:1.2), (crossed eyes:1.2), (asymmetrical face:1.2), (blown out highlights:1.2), (crushed shadows:1.2), (overexposed:1.2), (underexposed:1.2), (motion blur:1.2), (shaking:1.2), (jittery:1.2), (warping:1.5), (morphing:1.5), (stretched:1.5), (squared:1.2), (pixelated:1.2), (blocky:1.2), (noisy:1.2), (grainy:1.2), (blurry:1.2), (low resolution:1.2), (text, watermark, signature, logo), (signature:1.2), (text:1.2), (words:1.2), (glitch, artifact), (bad texture, (texture noise:1.2)), (sweat, oil, slime), (too smooth skin:1.2), (plastic skin:1.2), (plastic:1.2), (waxy:1.2), (unreal, cgi, 3d render, octane, unreal engine), (cartoon, anime, drawing, sketch), (deformed hair, messy hair, (hair floating:1.2), (hair physics:1.2)), (deformed jewelry, (jewelry floating:1.2)), (deformed clothing, (clothing floating:1.2)), (deformed background, (background moving:1.2)), (too much movement, (overly dynamic:1.2)), (too little movement, (static:1.2)), (face swap, (face distortion:1.2)), (body swap, (body distortion:1.2)), (limb swap, (limb distortion:1.2)), (extra eyes, (extra mouth:1.2)), (double chin:1.2), (wide mouth:1.2), (small mouth:1.2), (big nose:1.2), (small nose:1.2), (big ears:1.2), (small ears:1.2), (big head:1.2), (small head:1.2), (big body:1.2), (small body:1.2), (fat:1.2), (thin:1.2), (old, young, baby, child, adult, senior), (male, female, boy, girl, man, woman), (dark, light, black, white, blue, red, green, yellow, purple, orange, pink, brown, gray, silver, gold, bronze, copper, iron, steel, titanium, platinum, chrome, aluminum, zinc, lead, mercury, cadmium, cobalt, nickel, manganese, vanadium, chromium, molybdenum, tungsten, hafnium, rhenium, osmium, iridium, ruthenium, technetium, einsteinium, fermium, mendelevium, nobelium, lawrencium, rutherfordium, darmstadtium, roentgenium, copernicium, nihonium, flerovium, moscovium, livermorium, tennessine, oganesson, (quantum:1.2), (relativity:1.2), (string theory:1.2), (multiverse:1.2), (parallel universe:1.2), (time travel:1.2), (teleportation:1.2), (invisibility:1.2), (superpower:1.2), (magic, spell, magic power), (fire, water, earth, air, ice, lightning, wind, thunder, storm, rain, snow, hail, sleet, fog, mist, cloud, sky, ocean, lake, river, stream, waterfall, ocean, sea, beach, shore, sand, rock, stone, wood, metal, glass, plastic, rubber, leather, silk, cotton, wool, linen, nylon, polyester, acrylic, rayon, spandex, elastane, lycra, neoprene, latex, vinyl, pvc, urethane, silicone, rubber, plastic, metal, glass, wood, stone, rock, sand, soil, dirt, mud, clay, mud, silt, loam, peat, humus, compost, fertilizer, pesticide, herbicide, insecticide, fungicide, rodenticide, acaricide, nematicide, bactericide, virucidal, sporicide, algicide, fungistat, bacteriostat, virucidal, sporicidal, algicidal, (quantum:1.2), (relativity:1.2), (string theory:1.2), (multiverse:1.2), (parallel universe:1.2), (time travel:1.2), (teleportation:1.2), (invisibility:1.2), (superpower:1.2), (magic, spell, magic power), (fire, water, earth, air, ice, lightning, wind, thunder, storm, rain, snow, hail, sleet, fog, mist, cloud, sky, ocean, lake, river, stream, waterfall, ocean, sea, beach, shore, sand, rock, stone, wood, metal, glass, plastic, rubber, leather, silk, cotton, wool, linen, nylon, polyester, acrylic, rayon, spandex, elastane, lycra, neoprene, latex, vinyl, pvc, urethane, silicone, rubber, plastic, metal, glass, wood, stone, rock, sand, soil, dirt, mud, clay, mud, silt, loam, peat, humus, compost, fertilizer, pesticide, herbicide, insecticide, fungicide, rodenticide, acaricide, nematicide, bactericide, virucidal, sporicide, algicide, fungistat, bacteriostat, virucidal, sporicidal, algicidal)\n",
+      "prompt": "lowres, worst quality, low quality, bad anatomy, bad hands, extra fingers, missing fingers, extra limbs, deformed, disfigured, mutated, watermark, text, signature",
       "clip": [
         "321",
         1
@@ -787,7 +796,7 @@
   "327": {
     "inputs": {
       "prompt": [
-        "303",
+        "328",
         0
       ],
       "clip": [
