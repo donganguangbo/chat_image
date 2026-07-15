@@ -13,6 +13,13 @@ LLAMA_MMPROJ="${LLAMA_MMPROJ:-$PROJECT_ROOT/models/llama/mmproj-Qwen3.6-35B-A3B-
 LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-16384}"
 LLAMA_NGL="${LLAMA_NGL:-999}"
 LLAMA_NO_CACHE_PROMPT="${LLAMA_NO_CACHE_PROMPT:-1}"
+# DRY sampler: suppresses the degenerate repetition loops that make the reasoning
+# model occasionally run away (generating to the context ceiling → truncated →
+# empty answer). Only penalizes long verbatim repeats, so normal thinking is
+# untouched. Set LLAMA_DRY_MULTIPLIER=0 to disable.
+LLAMA_DRY_MULTIPLIER="${LLAMA_DRY_MULTIPLIER:-0.8}"
+LLAMA_DRY_BASE="${LLAMA_DRY_BASE:-1.75}"
+LLAMA_DRY_ALLOWED_LENGTH="${LLAMA_DRY_ALLOWED_LENGTH:-2}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
 COMFY_PORTS="${COMFY_PORTS:-6006 6009}"
 
@@ -386,6 +393,9 @@ if [[ -n "$LLAMA_MMPROJ" ]]; then
 fi
 if [[ "$LLAMA_NO_CACHE_PROMPT" == "1" ]]; then
   llama_args+=(--no-cache-prompt)
+fi
+if [[ "$LLAMA_DRY_MULTIPLIER" != "0" ]]; then
+  llama_args+=(--dry-multiplier "$LLAMA_DRY_MULTIPLIER" --dry-base "$LLAMA_DRY_BASE" --dry-allowed-length "$LLAMA_DRY_ALLOWED_LENGTH")
 fi
 if [[ -n "${LLAMA_EXTRA_ARGS:-}" ]]; then
   read -r -a extra_llama_args <<<"$LLAMA_EXTRA_ARGS"
