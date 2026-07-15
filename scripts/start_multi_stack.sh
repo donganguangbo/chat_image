@@ -21,6 +21,12 @@ LLAMA_DRY_MULTIPLIER="${LLAMA_DRY_MULTIPLIER:-0.8}"
 LLAMA_DRY_BASE="${LLAMA_DRY_BASE:-1.75}"
 LLAMA_DRY_ALLOWED_LENGTH="${LLAMA_DRY_ALLOWED_LENGTH:-2}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
+# VRAM strategy for ComfyUI. Default "highvram": keep models resident in the
+# (large, mostly-idle) GPU instead of offloading the 40GB video model + VAE to
+# the container's limited CPU RAM — that offloading was getting the process
+# OOM-killed (SIGKILL) during the video VAE decode while 74GB of VRAM sat free.
+# Set to "" for ComfyUI's auto default, or "gpu-only"/"normalvram" to change.
+COMFY_VRAM_MODE="${COMFY_VRAM_MODE:-highvram}"
 COMFY_PORTS="${COMFY_PORTS:-6006 6009}"
 
 # Comfy template source (read-only source tree)
@@ -411,6 +417,8 @@ wait_http_ok "$LLAMA_HEALTH_URL" "$LLAMA_WAIT_SEC" "llama" || {
 }
 
 echo "[6/8] starting ComfyUI backends..."
+comfy_vram_args=()
+[[ -n "$COMFY_VRAM_MODE" ]] && comfy_vram_args+=("--$COMFY_VRAM_MODE")
 for p in "${comfy_ports[@]}"; do
   log_file="$LOG_DIR/comfy_${p}_${timestamp}.log"
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
@@ -427,6 +435,7 @@ for p in "${comfy_ports[@]}"; do
         "$comfy_python" -u main.py \
           --listen "$COMFY_HOST" \
           --port "$p" \
+          "${comfy_vram_args[@]}" \
           --input-directory "$runtime_root/input" \
           --output-directory "$runtime_root/output" \
           --temp-directory "$runtime_root/temp" \
@@ -437,7 +446,7 @@ for p in "${comfy_ports[@]}"; do
   else
     (
       cd "$COMFY_ROOT"
-      nohup "$PYTHON_BIN" -u main.py --listen "$COMFY_HOST" --port "$p" >"$log_file" 2>&1 &
+      nohup "$PYTHON_BIN" -u main.py --listen "$COMFY_HOST" --port "$p" "${comfy_vram_args[@]}" >"$log_file" 2>&1 &
       echo $! > "$RUN_DIR/comfy_${p}.pid"
     )
   fi
