@@ -39,8 +39,8 @@ func runFFmpeg(timeout time.Duration, args ...string) ([]byte, error) {
 type generatedMediaConverter func(content []byte, sourceExt string) (path string, cleanup func(), err error)
 
 type generatedOutputConverters struct {
-	imageToAVIF   generatedMediaConverter
-	videoToAV1MP4 generatedMediaConverter
+	imageToAVIF    generatedMediaConverter
+	videoToH264MP4 generatedMediaConverter
 }
 
 // preparedOutput is either an on-disk converted file (path + cleanup) or
@@ -71,12 +71,12 @@ func prepareGeneratedOutputContent(kind, filename string, content []byte, conver
 		}
 		return preparedOutput{ext: ".avif", path: path, cleanup: cleanup}, nil
 	case "video":
-		if converters.videoToAV1MP4 == nil {
-			return preparedOutput{}, errors.New("AV1 video converter is not configured")
+		if converters.videoToH264MP4 == nil {
+			return preparedOutput{}, errors.New("H.264 video converter is not configured")
 		}
-		path, cleanup, err := converters.videoToAV1MP4(content, ext)
+		path, cleanup, err := converters.videoToH264MP4(content, ext)
 		if err != nil {
-			return preparedOutput{}, fmt.Errorf("convert generated video to AV1 MP4: %w", err)
+			return preparedOutput{}, fmt.Errorf("convert generated video to H.264 MP4: %w", err)
 		}
 		return preparedOutput{ext: ".mp4", path: path, cleanup: cleanup}, nil
 	default:
@@ -172,15 +172,17 @@ func convertImageBytesToAVIF(content []byte, sourceExt string) (string, func(), 
 	return "", nil, fmt.Errorf("ffmpeg AVIF conversion failed: %s", strings.Join(failures, "; "))
 }
 
-// convertVideoBytesToAV1MP4 mirrors convertImageBytesToAVIF: it returns the
-// output file path + cleanup func and leaves the encoded MP4 on disk rather than
-// reading it back into memory.
-func convertVideoBytesToAV1MP4(content []byte, sourceExt string) (string, func(), error) {
+// convertVideoBytesToH264MP4 transcodes to H.264 / AAC-less MP4 (yuv420p +
+// faststart), the most universally playable format (every browser, iOS/Safari,
+// Android, older devices) — AV1 was rejected for poor playback compatibility.
+// It returns the output file path + cleanup func and leaves the encoded MP4 on
+// disk rather than reading it back into memory.
+func convertVideoBytesToH264MP4(content []byte, sourceExt string) (string, func(), error) {
 	if len(content) == 0 {
 		return "", nil, errors.New("empty video content")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "go_gateway_av1_video_*")
+	tmpDir, err := os.MkdirTemp("", "go_gateway_h264_video_*")
 	if err != nil {
 		return "", nil, err
 	}
@@ -200,16 +202,19 @@ func convertVideoBytesToAV1MP4(content []byte, sourceExt string) (string, func()
 		"-i", inputPath,
 		"-map", "0:v:0",
 		"-an",
-		"-pix_fmt", "yuv420p",
+		"-pix_fmt", "yuv420p", // 8-bit 4:2:0 — required for broad hardware decode
 		"-movflags", "+faststart",
 	}
+	// libx264 (main profile) is the gold standard for compatibility; h264_nvenc is
+	// a GPU-accelerated fallback; bare "h264" lets ffmpeg pick any built-in H.264
+	// encoder as a last resort.
 	attempts := []struct {
 		name string
 		args []string
 	}{
-		{"libsvtav1", append(append([]string{}, baseArgs...), "-c:v", "libsvtav1", "-crf", "28", "-preset", "8", outputPath)},
-		{"libaom-av1", append(append([]string{}, baseArgs...), "-c:v", "libaom-av1", "-crf", "28", "-b:v", "0", "-cpu-used", "6", outputPath)},
-		{"librav1e", append(append([]string{}, baseArgs...), "-c:v", "librav1e", "-qp", "84", "-speed", "6", outputPath)},
+		{"libx264", append(append([]string{}, baseArgs...), "-c:v", "libx264", "-crf", "23", "-preset", "medium", "-profile:v", "main", outputPath)},
+		{"h264_nvenc", append(append([]string{}, baseArgs...), "-c:v", "h264_nvenc", "-preset", "p5", "-cq", "23", "-profile:v", "main", outputPath)},
+		{"default-h264", append(append([]string{}, baseArgs...), "-c:v", "h264", outputPath)},
 	}
 	var failures []string
 	for _, attempt := range attempts {
@@ -231,7 +236,7 @@ func convertVideoBytesToAV1MP4(content []byte, sourceExt string) (string, func()
 		return outputPath, cleanup, nil
 	}
 	cleanup()
-	return "", nil, fmt.Errorf("ffmpeg AV1 MP4 conversion failed: %s", strings.Join(failures, "; "))
+	return "", nil, fmt.Errorf("ffmpeg H.264 MP4 conversion failed: %s", strings.Join(failures, "; "))
 }
 
 func sanitizeMediaInputExt(ext string) string {

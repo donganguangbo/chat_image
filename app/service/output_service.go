@@ -147,8 +147,8 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 				}
 
 				prepared, err := prepareGeneratedOutputContent(outputKind, filename, content, generatedOutputConverters{
-					imageToAVIF:   convertImageBytesToAVIF,
-					videoToAV1MP4: convertVideoBytesToAV1MP4,
+					imageToAVIF:    convertImageBytesToAVIF,
+					videoToH264MP4: convertVideoBytesToH264MP4,
 				})
 				if err != nil {
 					return nil, fmt.Errorf("prepare output %s: %w", filename, err)

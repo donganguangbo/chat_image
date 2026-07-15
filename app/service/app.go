@@ -206,7 +206,7 @@ func cleanupStaleTempFiles(maxAge time.Duration) {
 		"go_gateway_img_*",
 		"go_gateway_img_b64_*",
 		"go_gateway_avif_*",
-		"go_gateway_av1_video_*",
+		"go_gateway_h264_video_*",
 		"chat-image-output-*",
 	}
 	cutoff := time.Now().Add(-maxAge)
