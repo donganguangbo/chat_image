@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -90,6 +91,7 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 	}
 
 	var out []TaskOutput
+	var firstViewErr error
 	wantKind := strings.TrimSpace(cfg.OutputKind)
 	for nodeID, nodeVal := range outputsAny {
 		nodeMap, ok := nodeVal.(map[string]any)
@@ -134,6 +136,13 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 
 				content, err := comfy.ViewFile(filename, subfolder, fileType)
 				if err != nil {
+					// Don't silently drop an already-produced artifact: a /view failure is a
+					// download error, not "no output". Log it and keep the first one so the
+					// terminal error reports the real cause instead of "no output files".
+					log.Printf("[view fail] task=%s file=%s subfolder=%s: %v", taskID, filename, subfolder, err)
+					if firstViewErr == nil {
+						firstViewErr = err
+					}
 					continue
 				}
 
@@ -209,6 +218,11 @@ func (s *Server) downloadOutputs(comfy *ComfyClient, taskID string, cfg Workflow
 	}
 
 	if len(out) == 0 {
+		// A /view download failure is not the same as the workflow producing nothing;
+		// surface the real download error rather than misreporting it as "no output".
+		if firstViewErr != nil {
+			return nil, fmt.Errorf("failed to download produced output for workflow=%s: %w", cfg.ID, firstViewErr)
+		}
 		if cfg.Mode == "image_edit" {
 			if len(afterNodeSet) > 0 {
 				ids := make([]string, 0, len(afterNodeSet))

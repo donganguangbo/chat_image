@@ -4,9 +4,35 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"os"
+	"strings"
 	"time"
 )
+
+// stripHeavyStoredParams deletes large base64 input fields from the stored
+// task's Params so they stop being deep-cloned on every status read/update.
+// snapshotParams is a lock-free snapshot used only to decide whether a write is
+// needed at all (skip the locked updateTask + emit when there's nothing heavy).
+func (s *Server) stripHeavyStoredParams(taskID string, snapshotParams map[string]any) {
+	hasHeavy := false
+	for k := range snapshotParams {
+		if strings.Contains(k, "base64") {
+			hasHeavy = true
+			break
+		}
+	}
+	if !hasHeavy {
+		return
+	}
+	s.updateTask(taskID, func(t *Task) {
+		for k := range t.Params {
+			if strings.Contains(k, "base64") {
+				delete(t.Params, k)
+			}
+		}
+	})
+}
 
 func (s *Server) executeTask(taskID string) {
 	task := s.getTask(taskID)
@@ -82,6 +108,11 @@ func (s *Server) executeTask(taskID string) {
 	}
 
 	params := cloneMap(task.Params)
+	// Drop the heavy base64 inputs from the STORED task now that we hold a private
+	// working copy. Otherwise every getTask/updateTask/emit during the (up to
+	// 30-min) poll re-serializes ~134MB of base64 via cloneMap(Params) — the main
+	// OOM driver. Execution below uses `params`, which keeps the values it needs.
+	s.stripHeavyStoredParams(taskID, task.Params)
 	if _, ok := params["size_long"]; !ok {
 		w := getInt(params["width"], 0)
 		h := getInt(params["height"], 0)
@@ -144,6 +175,7 @@ func (s *Server) executeTask(taskID string) {
 		t.Progress = 15
 		t.Message = "submitted"
 	})
+	log.Printf("[task submit] task=%s workflow=%s backend=%s prompt_id=%s", taskID, task.WorkflowID, comfy.BaseURL, promptID)
 
 	timeoutSec := cfg.TimeoutSec
 	if timeoutSec <= 0 {
@@ -162,6 +194,9 @@ func (s *Server) executeTask(taskID string) {
 		"running",
 	)
 	if runErr != nil && cfg.Mode == "image_edit" && isMissingImageEditAfterError(runErr) {
+		// Primary image-edit path failed; we silently fall back to no-swap. Log the
+		// original failure so a persistently-failing primary path stays visible.
+		log.Printf("[image_edit fallback] task=%s primary_err=%v", taskID, runErr)
 		fallbackPrompt := cloneMap(rendered)
 		applyImageEditNoSwapFallback(fallbackPrompt)
 		fallbackAfterIDs := collectImageEditAfterNodeIDs(fallbackPrompt)

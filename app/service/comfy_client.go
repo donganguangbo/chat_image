@@ -2,17 +2,21 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -30,8 +34,85 @@ type ComfyPool struct {
 func NewComfyClient(baseURL string) *ComfyClient {
 	return &ComfyClient{
 		BaseURL: strings.TrimRight(baseURL, "/"),
-		HTTP:    &http.Client{Timeout: 120 * time.Second},
+		HTTP: &http.Client{
+			Timeout: 120 * time.Second,
+			// Explicit dial timeout so a black-holed host fails fast instead of
+			// holding a worker for the full 120s; bounded idle-conn pool so the
+			// client doesn't leak sockets/goroutines over long runs.
+			Transport: &http.Transport{
+				DialContext:         (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+				MaxIdleConns:        50,
+				MaxIdleConnsPerHost: 8,
+				IdleConnTimeout:     60 * time.Second,
+			},
+		},
 	}
+}
+
+// isRetryableNetErr reports whether err is a CONNECTION-ESTABLISHMENT failure —
+// dial timeout, connection refused, or DNS failure — meaning the request bytes
+// provably never reached the server. Only such errors are safe to retry for a
+// non-idempotent submit like QueuePrompt: a response timeout, mid-stream reset,
+// EOF, or broken pipe is ambiguous (the server may have already received and
+// enqueued the prompt) and would double-submit, so those are NOT retryable.
+//
+// Note: errors.As(err, &net.Error) would match almost everything here, because
+// http.Client.Do wraps every error in *url.Error and *url.Error itself satisfies
+// net.Error — so that check is deliberately avoided.
+func isRetryableNetErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true // name resolution failed → never connected
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		return true // connect() refused → never connected
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		// Op=="dial" covers connect timeouts, network unreachable, and refused;
+		// Op=="read"/"write" happen after the request was (at least partly) sent.
+		return opErr.Op == "dial"
+	}
+	return false
+}
+
+// doWithRetry runs makeReq+Do up to 3 times, retrying ONLY on transport-level errors
+// (see isRetryableNetErr). makeReq must rebuild the request/body on each attempt. A
+// returned *http.Response (even 5xx) is handed back unretried — the caller decides,
+// which keeps non-idempotent submits (QueuePrompt) from being double-queued.
+func (c *ComfyClient) doWithRetry(what string, makeReq func() (*http.Request, error)) (*http.Response, error) {
+	const attempts = 3
+	var lastErr error
+	for i := 0; i < attempts; i++ {
+		req, err := makeReq()
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.HTTP.Do(req)
+		if err == nil {
+			return resp, nil
+		}
+		lastErr = err
+		if !isRetryableNetErr(err) {
+			return nil, err
+		}
+		if i < attempts-1 {
+			backoff := time.Duration(500*(1<<i)) * time.Millisecond // 0.5s, 1s
+			log.Printf("[comfy retry] %s attempt=%d backend=%s err=%v; retrying in %s", what, i+1, c.BaseURL, err, backoff)
+			time.Sleep(backoff)
+		}
+	}
+	return nil, lastErr
+}
+
+// drainClose reads (a bounded amount of) the remaining body before closing so the
+// underlying connection can be reused by the idle pool instead of being discarded.
+func drainClose(body io.ReadCloser) {
+	_, _ = io.Copy(io.Discard, io.LimitReader(body, 1<<20))
+	_ = body.Close()
 }
 
 func NewComfyPool(urls []string) *ComfyPool {
@@ -70,19 +151,79 @@ func (p *ComfyPool) URLs() []string {
 	return out
 }
 
+// Clients returns a snapshot of the backend clients (for readiness probing and
+// shutdown interrupts). The slice is a copy; the *ComfyClient values are shared.
+func (p *ComfyPool) Clients() []*ComfyClient {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return append([]*ComfyClient(nil), p.clients...)
+}
+
+// ClientForURL returns the pooled client whose BaseURL matches url (trailing
+// slash tolerant), or nil if none. Used to target a specific backend, e.g. to
+// interrupt the orphan job of a running task on shutdown.
+func (p *ComfyPool) ClientForURL(u string) *ComfyClient {
+	target := strings.TrimRight(strings.TrimSpace(u), "/")
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, c := range p.clients {
+		if c.BaseURL == target {
+			return c
+		}
+	}
+	return nil
+}
+
+// SystemStats probes ComfyUI's /system_stats endpoint as a reachability check.
+// A nil return means the backend answered 2xx (ready); any error means it is
+// unreachable or unhealthy. Uses a caller-supplied ctx for a short deadline.
+func (c *ComfyClient) SystemStats(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.BaseURL+"/system_stats", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer drainClose(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return fmt.Errorf("comfy /system_stats status %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// Interrupt asks ComfyUI to stop its currently-executing prompt. ComfyUI's
+// /interrupt has no prompt_id argument — it cancels whatever is running — so
+// this is a best-effort orphan cleanup used on graceful shutdown.
+func (c *ComfyClient) Interrupt(ctx context.Context) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/interrupt", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return err
+	}
+	defer drainClose(resp.Body)
+	return nil
+}
+
 func (c *ComfyClient) QueuePrompt(prompt map[string]any, clientID string) (string, error) {
 	body := map[string]any{"prompt": prompt, "client_id": clientID}
 	buf, _ := json.Marshal(body)
-	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/prompt", bytes.NewReader(buf))
+	resp, err := c.doWithRetry("queue_prompt", func() (*http.Request, error) {
+		req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/prompt", bytes.NewReader(buf))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	})
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+	defer drainClose(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return "", fmt.Errorf("comfy /prompt failed: %s", strings.TrimSpace(string(raw)))
@@ -101,11 +242,12 @@ func (c *ComfyClient) QueuePrompt(prompt map[string]any, clientID string) (strin
 
 func (c *ComfyClient) GetHistory(promptID string) (map[string]any, error) {
 	u := c.BaseURL + "/history/" + url.PathEscape(promptID)
+	// Not wrapped in doWithRetry: the poll loop (waitForPromptOutputs) already retries.
 	resp, err := c.HTTP.Get(u)
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer drainClose(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return nil, fmt.Errorf("comfy /history failed: %s", strings.TrimSpace(string(raw)))
@@ -123,11 +265,13 @@ func (c *ComfyClient) ViewFile(filename, subfolder, fileType string) ([]byte, er
 	q.Set("subfolder", subfolder)
 	q.Set("type", fileType)
 	u := c.BaseURL + "/view?" + q.Encode()
-	resp, err := c.HTTP.Get(u)
+	resp, err := c.doWithRetry("view", func() (*http.Request, error) {
+		return http.NewRequest(http.MethodGet, u, nil)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer drainClose(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 		return nil, fmt.Errorf("comfy /view failed: %s", strings.TrimSpace(string(raw)))
@@ -136,37 +280,38 @@ func (c *ComfyClient) ViewFile(filename, subfolder, fileType string) ([]byte, er
 }
 
 func (c *ComfyClient) UploadImage(localPath string, subfolder string) (string, error) {
-	fh, err := os.Open(localPath)
-	if err != nil {
-		return "", err
-	}
-	defer fh.Close()
+	resp, err := c.doWithRetry("upload_image", func() (*http.Request, error) {
+		fh, err := os.Open(localPath)
+		if err != nil {
+			return nil, err
+		}
+		defer fh.Close()
 
-	var body bytes.Buffer
-	writer := multipart.NewWriter(&body)
-	_ = writer.WriteField("overwrite", "false")
-	_ = writer.WriteField("subfolder", subfolder)
-	part, err := writer.CreateFormFile("image", filepath.Base(localPath))
+		var body bytes.Buffer
+		writer := multipart.NewWriter(&body)
+		_ = writer.WriteField("overwrite", "false")
+		_ = writer.WriteField("subfolder", subfolder)
+		part, err := writer.CreateFormFile("image", filepath.Base(localPath))
+		if err != nil {
+			return nil, err
+		}
+		if _, err := io.Copy(part, fh); err != nil {
+			return nil, err
+		}
+		if err := writer.Close(); err != nil {
+			return nil, err
+		}
+		req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/upload/image", &body)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+		return req, nil
+	})
 	if err != nil {
 		return "", err
 	}
-	if _, err := io.Copy(part, fh); err != nil {
-		return "", err
-	}
-	if err := writer.Close(); err != nil {
-		return "", err
-	}
-
-	req, err := http.NewRequest(http.MethodPost, c.BaseURL+"/upload/image", &body)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
+	defer drainClose(resp.Body)
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return "", fmt.Errorf("comfy /upload/image failed: %s", strings.TrimSpace(string(raw)))
@@ -219,16 +364,18 @@ func (c *ComfyClient) ConvertWorkflow(ui map[string]any) (map[string]any, error)
 
 func (c *ComfyClient) postJSON(path string, payload any) (map[string]any, int, string, error) {
 	buf, _ := json.Marshal(payload)
-	req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, bytes.NewReader(buf))
+	resp, err := c.doWithRetry("post "+path, func() (*http.Request, error) {
+		req, err := http.NewRequest(http.MethodPost, c.BaseURL+path, bytes.NewReader(buf))
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	})
 	if err != nil {
 		return nil, 0, "", err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := c.HTTP.Do(req)
-	if err != nil {
-		return nil, 0, "", err
-	}
-	defer resp.Body.Close()
+	defer drainClose(resp.Body)
 
 	rawBytes, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	raw := strings.TrimSpace(string(rawBytes))

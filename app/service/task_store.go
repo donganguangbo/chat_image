@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -103,6 +104,10 @@ func (s *Server) createTask(req CreateTaskRequest) (*Task, error) {
 	s.mu.Unlock()
 	s.emit(task)
 
+	// Snapshot BEFORE enqueue: once the ID is on s.queue a worker can pick it up and
+	// mutate *task under the lock, so cloning task after enqueue is a real data race.
+	snapshot := cloneTask(task)
+
 	select {
 	case s.queue <- task.ID:
 	default:
@@ -111,7 +116,7 @@ func (s *Server) createTask(req CreateTaskRequest) (*Task, error) {
 		s.mu.Unlock()
 		return nil, ErrQueueFull
 	}
-	return cloneTask(task), nil
+	return snapshot, nil
 }
 
 func (s *Server) getTask(id string) *Task {
@@ -155,6 +160,8 @@ func (s *Server) failTask(id string, err error) {
 		t.Progress = 100
 		t.Message = "failed"
 		t.Error = err.Error()
+		log.Printf("[task fail] task=%s workflow=%s backend=%s prompt_id=%s err=%v",
+			id, t.WorkflowID, t.Backend, t.PromptID, err)
 	})
 }
 

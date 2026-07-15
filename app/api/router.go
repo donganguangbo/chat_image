@@ -24,4 +24,24 @@ func Register(mux *http.ServeMux, srv *service.Server, outputDir string, storage
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "time": time.Now().UTC()})
 	})
+
+	// /readyz is readiness (not liveness): it reports 503 unless at least one
+	// Comfy backend answers /system_stats, so monitoring can distinguish "process
+	// up" from "can actually serve generations". Point orchestration/alerts here
+	// to catch run-time all-backends-down instead of the always-200 /healthz.
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+		healthy, total := srv.BackendHealth()
+		status := http.StatusOK
+		if healthy == 0 {
+			status = http.StatusServiceUnavailable
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(status)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"ok":               healthy > 0,
+			"backends_healthy": healthy,
+			"backends_total":   total,
+			"time":             time.Now().UTC(),
+		})
+	})
 }

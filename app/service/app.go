@@ -6,9 +6,11 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -129,6 +131,10 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 		return
 	}
 
+	// Sweep temp files orphaned by a previous hard crash (SIGKILL/OOM before the
+	// deferred cleanups ran). Frequent restarts would otherwise accumulate these.
+	cleanupStaleTempFiles(time.Hour)
+
 	srv := NewServer(workflows, comfyPool, serviceCfg, workerCount, absOutputDir, storage)
 
 	mux := http.NewServeMux()
@@ -144,16 +150,81 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	} else {
 		log.Printf("output dir: disabled for final files (storage_mode=s3 uses temporary files)")
 	}
-	log.Printf("hmac auth: enabled (window=%ds, /healthz and /outputs bypass)", hmacTimeWindowSec)
+	log.Printf("hmac auth: enabled (window=%ds, /healthz and /readyz bypass)", hmacTimeWindowSec)
 	nonces := newNonceCache()
-	handler := withHMACAuth(withCORS(mux), gatewaySecret, nonces)
+	// Cap total concurrent pre-auth request-body buffering (bytes, not count) so
+	// neither huge bodies nor a flood of small ones can OOM the gateway. ~7 legit
+	// ~134 MB i2v uploads fit in the 1 GiB default.
+	bodyBudget := newByteBudget(int64(envInt("GATEWAY_MAX_INFLIGHT_BODY_BYTES", 1<<30)))
+	handler := withHMACAuth(withCORS(mux), gatewaySecret, nonces, bodyBudget)
 	httpSrv := &http.Server{
 		Addr:              listenAddr,
 		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	if err := httpSrv.ListenAndServe(); err != nil {
+
+	// Serve in the background so the main goroutine can wait for a shutdown
+	// signal and drain gracefully (fail in-flight tasks, interrupt orphan Comfy
+	// jobs) instead of the process being killed mid-flight and leaving clients
+	// polling tasks that no longer exist.
+	serveErr := make(chan error, 1)
+	go func() {
+		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serveErr <- err
+		}
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case err := <-serveErr:
 		log.Fatal(err)
+	case sig := <-sigCh:
+		log.Printf("[shutdown] received %s, draining...", sig)
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if err := httpSrv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("[shutdown] http server shutdown error: %v", err)
+		}
+		// Fresh deadline for orphan interrupts: httpSrv.Shutdown may have burned
+		// the whole 20s draining a long in-flight request, which would leave the
+		// Interrupt() calls below running on an already-expired context.
+		interruptCtx, cancelInt := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancelInt()
+		srv.Shutdown(interruptCtx)
+		log.Printf("[shutdown] done")
+	}
+}
+
+// cleanupStaleTempFiles removes leftover gateway temp files/dirs older than
+// maxAge from the system temp dir. These are normally cleaned up on their own
+// (defer os.Remove / RemoveAll on every path); only a hard crash before those
+// run leaks them. The age gate avoids racing a concurrently-starting instance.
+func cleanupStaleTempFiles(maxAge time.Duration) {
+	tmp := os.TempDir()
+	prefixes := []string{
+		"go_gateway_img_*",
+		"go_gateway_img_b64_*",
+		"go_gateway_avif_*",
+		"go_gateway_av1_video_*",
+		"chat-image-output-*",
+	}
+	cutoff := time.Now().Add(-maxAge)
+	removed := 0
+	for _, pat := range prefixes {
+		matches, _ := filepath.Glob(filepath.Join(tmp, pat))
+		for _, m := range matches {
+			fi, err := os.Stat(m)
+			if err != nil || fi.ModTime().After(cutoff) {
+				continue
+			}
+			if err := os.RemoveAll(m); err == nil {
+				removed++
+			}
+		}
+	}
+	if removed > 0 {
+		log.Printf("[startup] swept %d stale temp file(s) from %s", removed, tmp)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime"
 	"net"
 	"net/http"
@@ -117,27 +118,60 @@ func downloadImageFromURL(rawURL string) (string, error) {
 		return "", errors.New("image url must be http or https")
 	}
 
-	req, err := http.NewRequest(http.MethodGet, u.String(), nil)
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("User-Agent", "chat-image-go-gateway/1.0")
-
-	// Use the package-level hardened client (SSRF protection, redirect limits).
-	resp, err := safeHTTPClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return "", fmt.Errorf("download image failed: %s %s", resp.Status, strings.TrimSpace(string(raw)))
-	}
-
+	// User-supplied remote hosts are the least reliable dependency, so retry a
+	// few times on transport errors and 5xx/429 (transient); 4xx is a permanent
+	// client error and is not retried. SSRF guards / size limit are unchanged
+	// (they live in safeHTTPClient and the read below).
 	const maxSize = int64(50 << 20)
-	payload, err := io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
-	if err != nil {
-		return "", err
+	const downloadAttempts = 3
+	var payload []byte
+	var contentType string
+	var lastErr error
+	for attempt := 0; attempt < downloadAttempts; attempt++ {
+		if attempt > 0 {
+			backoff := time.Duration(500*(1<<(attempt-1))) * time.Millisecond // 0.5s, 1s
+			log.Printf("[image download retry] url_host=%s attempt=%d err=%v; retrying in %s", u.Hostname(), attempt, lastErr, backoff)
+			time.Sleep(backoff)
+		}
+
+		req, err := http.NewRequest(http.MethodGet, u.String(), nil)
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("User-Agent", "chat-image-go-gateway/1.0")
+
+		// Use the package-level hardened client (SSRF protection, redirect limits).
+		resp, err := safeHTTPClient.Do(req)
+		if err != nil {
+			lastErr = err
+			if isRetryableNetErr(err) {
+				continue
+			}
+			return "", err
+		}
+
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+			drainClose(resp.Body)
+			lastErr = fmt.Errorf("download image failed: %s %s", resp.Status, strings.TrimSpace(string(raw)))
+			if resp.StatusCode >= 500 || resp.StatusCode == http.StatusTooManyRequests {
+				continue
+			}
+			return "", lastErr
+		}
+
+		contentType = resp.Header.Get("Content-Type")
+		payload, err = io.ReadAll(io.LimitReader(resp.Body, maxSize+1))
+		drainClose(resp.Body)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		lastErr = nil
+		break
+	}
+	if lastErr != nil {
+		return "", lastErr
 	}
 	if int64(len(payload)) > maxSize {
 		return "", fmt.Errorf("remote image too large: %d bytes", len(payload))
@@ -146,7 +180,7 @@ func downloadImageFromURL(rawURL string) (string, error) {
 		return "", errors.New("remote image is empty")
 	}
 
-	ext := inferImageExt(resp.Header.Get("Content-Type"), u.Path, payload)
+	ext := inferImageExt(contentType, u.Path, payload)
 	tmp, err := os.CreateTemp("", "go_gateway_img_*"+ext)
 	if err != nil {
 		return "", err

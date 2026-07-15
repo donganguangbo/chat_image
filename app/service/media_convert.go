@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,7 +10,28 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 )
+
+// ffmpeg run timeouts: a hung/pathologically-slow encode must not pin a worker
+// indefinitely. Image is a single frame (fast); video may legitimately take a
+// few minutes. On deadline the process is killed (CommandContext) and we fall
+// through to the next codec attempt / a clear failure.
+const (
+	ffmpegImageTimeout = 60 * time.Second
+	ffmpegVideoTimeout = 5 * time.Minute
+)
+
+// runFFmpeg executes ffmpeg with a hard timeout, returning combined output.
+func runFFmpeg(timeout time.Duration, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ffmpeg", args...).CombinedOutput()
+	if ctx.Err() == context.DeadlineExceeded {
+		return out, fmt.Errorf("ffmpeg timed out after %s", timeout)
+	}
+	return out, err
+}
 
 // generatedMediaConverter transcodes content and returns the path of the
 // result file plus a cleanup func (removes the temp dir). The result stays on
@@ -130,7 +152,7 @@ func convertImageBytesToAVIF(content []byte, sourceExt string) (string, func(), 
 	var failures []string
 	for _, attempt := range attempts {
 		_ = os.Remove(outputPath)
-		output, err := exec.Command("ffmpeg", attempt.args...).CombinedOutput()
+		output, err := runFFmpeg(ffmpegImageTimeout, attempt.args...)
 		if err != nil {
 			msg := strings.TrimSpace(string(output))
 			if msg == "" {
@@ -192,7 +214,7 @@ func convertVideoBytesToAV1MP4(content []byte, sourceExt string) (string, func()
 	var failures []string
 	for _, attempt := range attempts {
 		_ = os.Remove(outputPath)
-		output, err := exec.Command("ffmpeg", attempt.args...).CombinedOutput()
+		output, err := runFFmpeg(ffmpegVideoTimeout, attempt.args...)
 		if err != nil {
 			msg := strings.TrimSpace(string(output))
 			if msg == "" {
