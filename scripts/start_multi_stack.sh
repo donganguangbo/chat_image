@@ -25,6 +25,7 @@ COMFY_PORTS="${COMFY_PORTS:-6006 6009}"
 
 # Comfy template source (read-only source tree)
 COMFY_ROOT="${COMFY_ROOT:-$PROJECT_ROOT/ComfyUI}"
+COMFY_LAUNCHER="$PROJECT_ROOT/scripts/comfy_cgroup_launcher.py"
 PYTHON_BIN="${PYTHON_BIN:-$PROJECT_ROOT/venv/bin/python}"
 GO_BIN="${GO_BIN:-go}"
 
@@ -424,7 +425,7 @@ for p in "${comfy_ports[@]}"; do
         XDG_CACHE_HOME="$runtime_root/cache" \
         HF_HOME="$runtime_root/cache/hf" \
         TORCH_HOME="$runtime_root/cache/torch" \
-        "$comfy_python" -u main.py \
+        "$comfy_python" -u "$COMFY_LAUNCHER" \
           --listen "$COMFY_HOST" \
           --port "$p" \
           --input-directory "$runtime_root/input" \
@@ -437,7 +438,7 @@ for p in "${comfy_ports[@]}"; do
   else
     (
       cd "$COMFY_ROOT"
-      nohup "$PYTHON_BIN" -u main.py --listen "$COMFY_HOST" --port "$p" >"$log_file" 2>&1 &
+      nohup "$PYTHON_BIN" -u "$COMFY_LAUNCHER" --listen "$COMFY_HOST" --port "$p" >"$log_file" 2>&1 &
       echo $! > "$RUN_DIR/comfy_${p}.pid"
     )
   fi
