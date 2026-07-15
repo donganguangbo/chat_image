@@ -23,6 +23,39 @@ import (
 type ComfyClient struct {
 	BaseURL string
 	HTTP    *http.Client
+
+	// Passive health gate for failover. A transport failure (dial/connection
+	// refused) marks the backend unhealthy for a short cooldown so Next() skips
+	// it; after the cooldown it becomes eligible again and self-heals on the next
+	// successful call (no background prober needed).
+	healthMu       sync.Mutex
+	unhealthyUntil time.Time
+}
+
+// comfyUnhealthyCooldown is how long a backend is skipped after a transport
+// failure. Short, because a mid-cooldown routing still fails over transparently
+// and re-extends the cooldown; the goal is only to prefer a known-good peer.
+const comfyUnhealthyCooldown = 15 * time.Second
+
+// Healthy reports whether the backend is currently eligible for routing.
+func (c *ComfyClient) Healthy() bool {
+	c.healthMu.Lock()
+	defer c.healthMu.Unlock()
+	return !time.Now().Before(c.unhealthyUntil)
+}
+
+// MarkUnhealthy puts the backend into cooldown after a transport failure.
+func (c *ComfyClient) MarkUnhealthy() {
+	c.healthMu.Lock()
+	c.unhealthyUntil = time.Now().Add(comfyUnhealthyCooldown)
+	c.healthMu.Unlock()
+}
+
+// MarkHealthy clears the cooldown after a successful call.
+func (c *ComfyClient) MarkHealthy() {
+	c.healthMu.Lock()
+	c.unhealthyUntil = time.Time{}
+	c.healthMu.Unlock()
 }
 
 type ComfyPool struct {
@@ -130,15 +163,34 @@ func NewComfyPool(urls []string) *ComfyPool {
 func (p *ComfyPool) Next() *ComfyClient {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if len(p.clients) == 0 {
+	n := len(p.clients)
+	if n == 0 {
 		return nil
 	}
-	if p.next >= len(p.clients) {
+	if p.next >= n {
 		p.next = 0
 	}
+	// Prefer a healthy backend: scan up to n starting at p.next, advancing the
+	// cursor so routing stays round-robin among healthy nodes.
+	for i := 0; i < n; i++ {
+		c := p.clients[p.next]
+		p.next = (p.next + 1) % n
+		if c.Healthy() {
+			return c
+		}
+	}
+	// All backends are in cooldown — return the next one anyway rather than
+	// stalling; the caller will fail over / re-mark as needed.
 	c := p.clients[p.next]
-	p.next = (p.next + 1) % len(p.clients)
+	p.next = (p.next + 1) % n
 	return c
+}
+
+// Size returns the number of configured backends (for bounding failover attempts).
+func (p *ComfyPool) Size() int {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return len(p.clients)
 }
 
 func (p *ComfyPool) URLs() []string {
@@ -345,19 +397,34 @@ func (c *ComfyClient) ConvertWorkflow(ui map[string]any) (map[string]any, error)
 	}
 
 	var errs []string
+	// Track whether EVERY attempt failed at the transport level (backend
+	// unreachable). If so, surface the underlying net error via %w so callers
+	// (isRetryableNetErr) can fail over to another backend; if the server ever
+	// responded (non-API shape), it's reachable and this is a permanent error.
+	allTransport := true
+	var lastNetErr error
 	for _, ep := range endpoints {
 		for _, payload := range payloads {
 			out, status, body, err := c.postJSON(ep, payload)
 			if err != nil {
+				if isRetryableNetErr(err) {
+					lastNetErr = err
+				} else {
+					allTransport = false
+				}
 				errs = append(errs, fmt.Sprintf("%s -> %v", ep, err))
 				continue
 			}
 			if prompt, ok := extractAPIWorkflow(out); ok {
 				return prompt, nil
 			}
+			allTransport = false
 			keys := mapKeys(out)
 			errs = append(errs, fmt.Sprintf("%s -> %d non-API shape keys=%v body=%q", ep, status, keys, truncate(body, 160)))
 		}
+	}
+	if allTransport && lastNetErr != nil {
+		return nil, fmt.Errorf("workflow convert failed on all endpoints (backend unreachable): %w", lastNetErr)
 	}
 	return nil, fmt.Errorf("workflow convert failed on all endpoints: %s", strings.Join(errs, "; "))
 }

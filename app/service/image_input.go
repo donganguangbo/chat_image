@@ -65,7 +65,14 @@ var safeHTTPClient = &http.Client{
 	},
 }
 
-func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params map[string]any, key string) error {
+// materializeImageParam resolves an image param into a Comfy-side filename. The
+// returned bool reports whether the error (if any) was a transport failure of
+// the COMFY UploadImage step — i.e. the backend was unreachable — which is the
+// only case safe to fail over to another backend. A download-from-user-URL or
+// base64-decode failure is a per-task error (bad/unreachable user host, SSRF
+// block, malformed data), NOT a comfy-backend problem, so it returns false and
+// must not mark the backend unhealthy or trigger failover.
+func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params map[string]any, key string) (bool, error) {
 	raw := asString(params[key])
 	rawURL := asString(params[key+"_url"])
 	rawBase64 := asString(params[key+"_base64"])
@@ -76,23 +83,23 @@ func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params
 	case rawURL != "":
 		p, err := downloadImageFromURL(rawURL)
 		if err != nil {
-			return err
+			return false, err
 		}
 		localPath = p
 		defer func() { _ = os.Remove(p) }()
 	case rawBase64 != "":
 		p, err := decodeBase64ImageToTemp(rawBase64)
 		if err != nil {
-			return err
+			return false, err
 		}
 		localPath = p
 		defer func() { _ = os.Remove(p) }()
 	case raw != "":
 		// Do not touch the local filesystem; keep original value for
 		// Comfy-side input resolution (Comfy resolves against its own input dir).
-		return nil
+		return false, nil
 	default:
-		return nil
+		return false, nil
 	}
 
 	s.updateTask(taskID, func(t *Task) {
@@ -103,10 +110,12 @@ func (s *Server) materializeImageParam(comfy *ComfyClient, taskID string, params
 	})
 	uploaded, err := comfy.UploadImage(localPath, "go_gateway_uploads")
 	if err != nil {
-		return err
+		// Only a transport-level upload failure means THIS comfy backend is
+		// unreachable and the caller may fail over to another one.
+		return isRetryableNetErr(err), err
 	}
 	params[key] = uploaded
-	return nil
+	return false, nil
 }
 
 func downloadImageFromURL(rawURL string) (string, error) {
