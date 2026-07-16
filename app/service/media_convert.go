@@ -33,36 +33,6 @@ func runFFmpeg(timeout time.Duration, args ...string) ([]byte, error) {
 	return out, err
 }
 
-// probeVideoCodec returns the codec_name of the first video stream (e.g. "av1",
-// "h264"), lower-cased, using ffprobe. Empty string means it could not be read.
-func probeVideoCodec(content []byte, sourceExt string) (string, error) {
-	if len(content) == 0 {
-		return "", errors.New("empty video content")
-	}
-	tmpDir, err := os.MkdirTemp("", "go_gateway_probe_*")
-	if err != nil {
-		return "", err
-	}
-	defer os.RemoveAll(tmpDir)
-	inputPath := filepath.Join(tmpDir, "input"+sanitizeMediaInputExt(sourceExt))
-	if err := os.WriteFile(inputPath, content, 0o600); err != nil {
-		return "", err
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, "ffprobe",
-		"-v", "error",
-		"-select_streams", "v:0",
-		"-show_entries", "stream=codec_name",
-		"-of", "default=nw=1:nk=1",
-		inputPath,
-	).Output()
-	if err != nil {
-		return "", fmt.Errorf("ffprobe failed: %w", err)
-	}
-	return strings.ToLower(strings.TrimSpace(string(out))), nil
-}
-
 // generatedMediaConverter transcodes content and returns the path of the
 // result file plus a cleanup func (removes the temp dir). The result stays on
 // disk so it can be streamed rather than re-buffered in memory.

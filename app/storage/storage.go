@@ -167,37 +167,3 @@ func (o *ObjectStorage) Exists(ctx context.Context, key string) (bool, error) {
 	}
 	return false, err
 }
-
-// ListObjects returns every object key under prefix (following pagination).
-func (o *ObjectStorage) ListObjects(ctx context.Context, prefix string) ([]string, error) {
-	var keys []string
-	p := s3.NewListObjectsV2Paginator(o.client, &s3.ListObjectsV2Input{
-		Bucket: aws.String(o.bucket),
-		Prefix: aws.String(prefix),
-	})
-	for p.HasMorePages() {
-		page, err := p.NextPage(ctx)
-		if err != nil {
-			return nil, fmt.Errorf("list %q under %s: %w", prefix, o.bucket, err)
-		}
-		for _, obj := range page.Contents {
-			if obj.Key != nil {
-				keys = append(keys, *obj.Key)
-			}
-		}
-	}
-	return keys, nil
-}
-
-// Download returns the full object body for key.
-func (o *ObjectStorage) Download(ctx context.Context, key string) ([]byte, error) {
-	out, err := o.client.GetObject(ctx, &s3.GetObjectInput{
-		Bucket: aws.String(o.bucket),
-		Key:    aws.String(key),
-	})
-	if err != nil {
-		return nil, fmt.Errorf("download %s from %s: %w", key, o.bucket, err)
-	}
-	defer out.Body.Close()
-	return io.ReadAll(out.Body)
-}

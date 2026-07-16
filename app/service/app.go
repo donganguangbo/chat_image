@@ -131,21 +131,6 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 		return
 	}
 
-	// One-shot AV1->H.264 re-transcode: MIGRATE_TRANSCODE_AV1=dry lists AV1 videos,
-	// =1 re-encodes them in place (overwrites the same key). Runs standalone without
-	// serving, like MIGRATE_OUTPUTS; needs ffmpeg/ffprobe on PATH.
-	if mode := strings.TrimSpace(env("MIGRATE_TRANSCODE_AV1", "")); mode != "" {
-		if serviceCfg.StorageMode != StorageModeS3 || storage == nil {
-			log.Fatal("MIGRATE_TRANSCODE_AV1 requires storage_mode=s3 and complete s3 config")
-		}
-		dry := strings.EqualFold(mode, "dry")
-		log.Printf("[transcode] starting AV1->H.264 migration (dry=%v)", dry)
-		if err := migrateTranscodeAv1ToH264(context.Background(), storage, dry); err != nil {
-			log.Fatalf("[transcode] %v", err)
-		}
-		return
-	}
-
 	// Sweep temp files orphaned by a previous hard crash (SIGKILL/OOM before the
 	// deferred cleanups ran). Frequent restarts would otherwise accumulate these.
 	cleanupStaleTempFiles(time.Hour)
