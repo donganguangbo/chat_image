@@ -21,7 +21,7 @@ LLAMA_DRY_MULTIPLIER="${LLAMA_DRY_MULTIPLIER:-0.8}"
 LLAMA_DRY_BASE="${LLAMA_DRY_BASE:-1.75}"
 LLAMA_DRY_ALLOWED_LENGTH="${LLAMA_DRY_ALLOWED_LENGTH:-2}"
 COMFY_HOST="${COMFY_HOST:-0.0.0.0}"
-COMFY_PORTS="${COMFY_PORTS:-6006 6009}"
+COMFY_PORTS="${COMFY_PORTS:-6006}"
 
 # Comfy template source (read-only source tree)
 COMFY_ROOT="${COMFY_ROOT:-$PROJECT_ROOT/ComfyUI}"
@@ -45,14 +45,85 @@ GO_WAIT_SEC="${GO_WAIT_SEC:-60}"
 
 LOG_DIR="${LOG_DIR:-$PROJECT_ROOT/logs}"
 RUN_DIR="${RUN_DIR:-$PROJECT_ROOT/.run}"
+SUPERVISORD_BIN="${SUPERVISORD_BIN:-supervisord}"
+SUPERVISORCTL_BIN="${SUPERVISORCTL_BIN:-supervisorctl}"
+SUPERVISOR_PYTHON="${SUPERVISOR_PYTHON:-python3}"
+SUPERVISOR_CONFIG="$RUN_DIR/supervisord.conf"
+SUPERVISOR_SOCKET="$RUN_DIR/supervisor.sock"
+SUPERVISOR_PID_FILE="$RUN_DIR/supervisord.pid"
+HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-10}"
+HEALTH_FAILURE_THRESHOLD="${HEALTH_FAILURE_THRESHOLD:-6}"
+HEALTH_CHECK_TIMEOUT="${HEALTH_CHECK_TIMEOUT:-5}"
+HEALTH_RETRY_INTERVAL="${HEALTH_RETRY_INTERVAL:-30}"
+LOG_MAX_BYTES="${LOG_MAX_BYTES:-50MB}"
+LOG_BACKUPS="${LOG_BACKUPS:-5}"
 mkdir -p "$LOG_DIR" "$RUN_DIR"
-
-timestamp="$(date +%Y%m%d_%H%M%S)"
 
 die() {
   echo "[error] $*" >&2
   exit 1
 }
+
+supervisor_is_running() {
+  [[ -S "$SUPERVISOR_SOCKET" && -f "$SUPERVISOR_CONFIG" ]] || return 1
+  "$SUPERVISORCTL_BIN" -c "$SUPERVISOR_CONFIG" pid >/dev/null 2>&1
+}
+
+stop_project_supervisor() {
+  local pid=""
+  [[ -f "$SUPERVISOR_PID_FILE" ]] && pid="$(cat "$SUPERVISOR_PID_FILE" 2>/dev/null || true)"
+  if supervisor_is_running; then
+    "$SUPERVISORCTL_BIN" -c "$SUPERVISOR_CONFIG" shutdown >/dev/null 2>&1 || true
+  fi
+
+  for _ in {1..30}; do
+    [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+    kill "$pid" 2>/dev/null || true
+  fi
+  rm -f "$SUPERVISOR_SOCKET" "$SUPERVISOR_PID_FILE"
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  scripts/start_multi_stack.sh                  Start or replace the supervised stack
+  scripts/start_multi_stack.sh status           Show managed process status
+  scripts/start_multi_stack.sh stop             Stop the full stack and supervisor
+  scripts/start_multi_stack.sh restart           Rebuild and restart the full stack
+  scripts/start_multi_stack.sh restart SERVICE   Restart one managed service
+EOF
+}
+
+action="${1:-start}"
+case "$action" in
+  status)
+    if supervisor_is_running; then
+      exec "$SUPERVISORCTL_BIN" -c "$SUPERVISOR_CONFIG" status
+    fi
+    echo "[stopped] project supervisor is not running"
+    exit 1
+    ;;
+  stop)
+    stop_project_supervisor
+    echo "[ok] supervised stack stopped"
+    exit 0
+    ;;
+  restart)
+    if [[ -n "${2:-}" ]]; then
+      supervisor_is_running || die "project supervisor is not running"
+      exec "$SUPERVISORCTL_BIN" -c "$SUPERVISOR_CONFIG" restart "$2"
+    fi
+    ;;
+  start)
+    ;;
+  *)
+    usage >&2
+    exit 2
+    ;;
+esac
 
 wait_http_ok() {
   local url="$1"
@@ -301,12 +372,59 @@ prepare_comfy_instance() {
   COMFY_PY_BINS["$port"]="$venv_root/bin/python"
 }
 
+supervisor_command() {
+  "$SUPERVISOR_PYTHON" - "$@" <<'PY'
+import shlex
+import sys
+
+print(shlex.join(sys.argv[1:]).replace("%", "%%"))
+PY
+}
+
+append_supervisor_program() {
+  local name="$1"
+  local directory="$2"
+  local command="$3"
+  local log_file="$4"
+  local start_secs="$5"
+  local stop_wait_secs="$6"
+  local priority="$7"
+  local environment="${8:-}"
+
+  cat >>"$SUPERVISOR_CONFIG" <<EOF
+
+[program:${name}]
+directory=${directory}
+command=${command}
+priority=${priority}
+autostart=true
+autorestart=true
+startsecs=${start_secs}
+startretries=10
+stopsignal=TERM
+stopwaitsecs=${stop_wait_secs}
+stopasgroup=true
+killasgroup=true
+redirect_stderr=true
+stdout_logfile=${log_file}
+stdout_logfile_maxbytes=${LOG_MAX_BYTES}
+stdout_logfile_backups=${LOG_BACKUPS}
+EOF
+  if [[ -n "$environment" ]]; then
+    printf 'environment=%s\n' "$environment" >>"$SUPERVISOR_CONFIG"
+  fi
+}
+
 [[ -f "$COMFY_ROOT/main.py" ]] || die "ComfyUI not found: $COMFY_ROOT/main.py"
 [[ -x "$PYTHON_BIN" ]] || die "Python not executable: $PYTHON_BIN"
 [[ -x "$LLAMA_BIN" ]] || die "llama-server not executable: $LLAMA_BIN"
 [[ -f "$LLAMA_MODEL" ]] || die "llama model not found: $LLAMA_MODEL"
 [[ -z "$LLAMA_MMPROJ" || -f "$LLAMA_MMPROJ" ]] || die "llama mmproj not found: $LLAMA_MMPROJ"
 command -v "$GO_BIN" >/dev/null 2>&1 || die "Go not found: $GO_BIN"
+command -v "$SUPERVISORD_BIN" >/dev/null 2>&1 || die "supervisord not found (install: python3 -m pip install supervisor)"
+command -v "$SUPERVISORCTL_BIN" >/dev/null 2>&1 || die "supervisorctl not found (install: python3 -m pip install supervisor)"
+command -v "$SUPERVISOR_PYTHON" >/dev/null 2>&1 || die "Supervisor Python not found: $SUPERVISOR_PYTHON"
+"$SUPERVISOR_PYTHON" -c 'import supervisor' >/dev/null 2>&1 || die "Python cannot import supervisor: $SUPERVISOR_PYTHON"
 if [[ "$COMFY_ISOLATED" == "1" ]]; then
   command -v rsync >/dev/null 2>&1 || die "rsync is required when COMFY_ISOLATED=1"
 fi
@@ -342,7 +460,8 @@ if [[ -z "$GO_WORKERS" ]] || ! [[ "$GO_WORKERS" =~ ^[0-9]+$ ]] || (( GO_WORKERS 
 fi
 LLAMA_HEALTH_URL="${LLAMA_HEALTH_URL:-http://127.0.0.1:${LLAMA_PORT}/health}"
 
-echo "[1/8] stopping old processes..."
+echo "[1/9] stopping old supervised and legacy processes..."
+stop_project_supervisor
 kill_by_pid_file "$RUN_DIR/go_gateway.pid"
 kill_by_pid_file "$RUN_DIR/llama.pid"
 kill_by_pattern "[g]o run ."
@@ -358,17 +477,17 @@ for p in "${comfy_ports[@]}"; do
 done
 
 if [[ "$COMFY_ISOLATED" == "1" ]]; then
-  echo "[2/8] preparing isolated Comfy instances..."
+  echo "[2/9] preparing isolated Comfy instances..."
   mkdir -p "$ISOLATED_ROOT"
   for p in "${comfy_ports[@]}"; do
     prepare_comfy_instance "$p"
   done
 else
-  echo "[2/8] isolated mode disabled (legacy shared Comfy root)"
+  echo "[2/9] isolated mode disabled (legacy shared Comfy root)"
 fi
 
 if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
-  echo "[3/8] configuring Comfy model paths..."
+  echo "[3/9] configuring Comfy model paths..."
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
     for p in "${comfy_ports[@]}"; do
       configure_comfy_paths "$PROJECT_ROOT/models" "${COMFY_APP_ROOTS[$p]}"
@@ -377,11 +496,14 @@ if [[ "$CONFIGURE_COMFY_PATHS" == "1" ]]; then
     configure_comfy_paths "$PROJECT_ROOT/models" "$COMFY_ROOT"
   fi
 else
-  echo "[3/8] skip model path configure"
+  echo "[3/9] skip model path configure"
 fi
 
-echo "[4/8] starting llama..."
-llama_log="$LOG_DIR/llama_${timestamp}.log"
+echo "[4/9] building go gateway..."
+go_gateway_bin="$RUN_DIR/go_gateway"
+"$GO_BIN" build -o "$go_gateway_bin" .
+
+echo "[5/9] rendering supervisor config..."
 llama_args=(
   -m "$LLAMA_MODEL"
   --host "$LLAMA_HOST"
@@ -402,80 +524,129 @@ if [[ -n "${LLAMA_EXTRA_ARGS:-}" ]]; then
   read -r -a extra_llama_args <<<"$LLAMA_EXTRA_ARGS"
   llama_args+=("${extra_llama_args[@]}")
 fi
-nohup "$LLAMA_BIN" "${llama_args[@]}" >"$llama_log" 2>&1 &
-echo $! > "$RUN_DIR/llama.pid"
 
-echo "[5/8] waiting llama health..."
-wait_http_ok "$LLAMA_HEALTH_URL" "$LLAMA_WAIT_SEC" "llama" || {
-  tail -n 120 "$llama_log" || true
-  die "llama boot failed"
-}
+cat >"$SUPERVISOR_CONFIG" <<EOF
+[unix_http_server]
+file=${SUPERVISOR_SOCKET}
+chmod=0700
 
-echo "[6/8] starting ComfyUI backends..."
+[supervisord]
+logfile=${LOG_DIR}/supervisord.log
+logfile_maxbytes=20MB
+logfile_backups=${LOG_BACKUPS}
+pidfile=${SUPERVISOR_PID_FILE}
+childlogdir=${LOG_DIR}
+nodaemon=false
+minfds=1024
+minprocs=200
+strip_ansi=true
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
+
+[supervisorctl]
+serverurl=unix://${SUPERVISOR_SOCKET}
+EOF
+chmod 600 "$SUPERVISOR_CONFIG"
+
+llama_command="$(supervisor_command "$LLAMA_BIN" "${llama_args[@]}")"
+append_supervisor_program \
+  "llama" "$PROJECT_ROOT" "$llama_command" "$LOG_DIR/llama.log" 5 30 10
+
+monitor_args=(
+  "$SUPERVISOR_PYTHON" -u "$PROJECT_ROOT/scripts/health_monitor.py"
+  --interval "$HEALTH_CHECK_INTERVAL"
+  --failures "$HEALTH_FAILURE_THRESHOLD"
+  --timeout "$HEALTH_CHECK_TIMEOUT"
+  --retry-interval "$HEALTH_RETRY_INTERVAL"
+  --target "llama=$LLAMA_HEALTH_URL"
+  --grace "llama=$LLAMA_WAIT_SEC"
+)
+
 for p in "${comfy_ports[@]}"; do
-  log_file="$LOG_DIR/comfy_${p}_${timestamp}.log"
   if [[ "$COMFY_ISOLATED" == "1" ]]; then
     app_root="${COMFY_APP_ROOTS[$p]}"
     runtime_root="${COMFY_RUNTIME_ROOTS[$p]}"
     comfy_python="${COMFY_PY_BINS[$p]}"
-    (
-      cd "$app_root"
-      nohup env \
-        PYTHONPYCACHEPREFIX="$runtime_root/pycache" \
-        XDG_CACHE_HOME="$runtime_root/cache" \
-        HF_HOME="$runtime_root/cache/hf" \
-        TORCH_HOME="$runtime_root/cache/torch" \
-        "$comfy_python" -u "$COMFY_LAUNCHER" \
-          --listen "$COMFY_HOST" \
-          --port "$p" \
-          --input-directory "$runtime_root/input" \
-          --output-directory "$runtime_root/output" \
-          --temp-directory "$runtime_root/temp" \
-          --user-directory "$runtime_root/user" \
-          >"$log_file" 2>&1 &
-      echo $! > "$RUN_DIR/comfy_${p}.pid"
-    )
+    comfy_command="$(supervisor_command \
+      "$comfy_python" -u "$COMFY_LAUNCHER" \
+      --listen "$COMFY_HOST" \
+      --port "$p" \
+      --input-directory "$runtime_root/input" \
+      --output-directory "$runtime_root/output" \
+      --temp-directory "$runtime_root/temp" \
+      --user-directory "$runtime_root/user")"
+    comfy_environment="PYTHONPYCACHEPREFIX=\"$runtime_root/pycache\",XDG_CACHE_HOME=\"$runtime_root/cache\",HF_HOME=\"$runtime_root/cache/hf\",TORCH_HOME=\"$runtime_root/cache/torch\""
   else
-    (
-      cd "$COMFY_ROOT"
-      nohup "$PYTHON_BIN" -u "$COMFY_LAUNCHER" --listen "$COMFY_HOST" --port "$p" >"$log_file" 2>&1 &
-      echo $! > "$RUN_DIR/comfy_${p}.pid"
-    )
+    app_root="$COMFY_ROOT"
+    comfy_command="$(supervisor_command "$PYTHON_BIN" -u "$COMFY_LAUNCHER" --listen "$COMFY_HOST" --port "$p")"
+    comfy_environment=""
   fi
+  append_supervisor_program \
+    "comfy_${p}" "$app_root" "$comfy_command" "$LOG_DIR/comfy_${p}.log" 5 60 10 "$comfy_environment"
+  monitor_args+=(
+    --target "comfy_${p}=http://127.0.0.1:${p}/system_stats"
+    --grace "comfy_${p}=$COMFY_WAIT_SEC"
+  )
 done
 
-echo "[7/8] waiting ComfyUI health..."
+export LISTEN_ADDR=":${GO_PORT}"
+export WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/app/configs/workflows"
+export SERVICE_CONFIG_FILE="$PROJECT_ROOT/app/configs/service.yaml"
+export OUTPUT_DIR="${OUTPUT_DIR:-/root/autodl-fs}"
+export S3_ACCESS_KEY="${S3_ACCESS_KEY:-}"
+export S3_SECRET_KEY="${S3_SECRET_KEY:-}"
+export TEXT_BASE_URL="${TEXT_BASE_URL:-http://127.0.0.1:${LLAMA_PORT}}"
+export TEXT_MODEL="${TEXT_MODEL:-}"
+export TEXT_API_KEY="${TEXT_API_KEY:-}"
+export COMFY_URLS="$GO_COMFY_URLS"
+export GO_WORKERS
+
+gateway_command="$(supervisor_command "$go_gateway_bin")"
+append_supervisor_program \
+  "go_gateway" "$PROJECT_ROOT" "$gateway_command" "$LOG_DIR/go_gateway.log" 5 30 10
+monitor_args+=(
+  --target "go_gateway=http://127.0.0.1:${GO_PORT}/healthz"
+  --grace "go_gateway=$GO_WAIT_SEC"
+)
+
+monitor_command="$(supervisor_command "${monitor_args[@]}")"
+append_supervisor_program \
+  "health_monitor" "$PROJECT_ROOT" "$monitor_command" "$LOG_DIR/health_monitor.log" 1 10 20 \
+  "SUPERVISOR_SERVER_URL=\"unix://$SUPERVISOR_SOCKET\""
+
+echo "[6/9] starting project supervisor..."
+rm -f "$SUPERVISOR_SOCKET" "$SUPERVISOR_PID_FILE"
+"$SUPERVISORD_BIN" -c "$SUPERVISOR_CONFIG"
+for _ in {1..30}; do
+  supervisor_is_running && break
+  sleep 1
+done
+supervisor_is_running || die "project supervisor failed to start; see $LOG_DIR/supervisord.log"
+"$SUPERVISORCTL_BIN" -c "$SUPERVISOR_CONFIG" status
+
+echo "[7/9] waiting llama health..."
+wait_http_ok "$LLAMA_HEALTH_URL" "$LLAMA_WAIT_SEC" "llama" || {
+  tail -n 120 "$LOG_DIR/llama.log" || true
+  die "llama not ready; supervisor will keep retrying"
+}
+
+echo "[8/9] waiting ComfyUI health..."
 for p in "${comfy_ports[@]}"; do
   wait_http_ok "http://127.0.0.1:${p}/system_stats" "$COMFY_WAIT_SEC" "comfy:${p}" || {
-    tail -n 120 "$LOG_DIR/comfy_${p}_${timestamp}.log" || true
-    die "comfy ${p} boot failed"
+    tail -n 120 "$LOG_DIR/comfy_${p}.log" || true
+    die "comfy ${p} not ready; supervisor will keep retrying"
   }
 done
 
-echo "[8/8] starting go gateway (multi comfy load-balance)..."
-go_log="$LOG_DIR/go_gateway_${timestamp}.log"
-go_gateway_bin="$RUN_DIR/go_gateway"
-"$GO_BIN" build -o "$go_gateway_bin" .
-nohup env LISTEN_ADDR=":${GO_PORT}" \
-  WORKFLOW_CONFIG_DIR="$PROJECT_ROOT/app/configs/workflows" \
-  SERVICE_CONFIG_FILE="$PROJECT_ROOT/app/configs/service.yaml" \
-  OUTPUT_DIR="/root/autodl-fs" \
-  S3_ACCESS_KEY="${S3_ACCESS_KEY:-}" \
-  S3_SECRET_KEY="${S3_SECRET_KEY:-}" \
-  TEXT_BASE_URL="${TEXT_BASE_URL:-http://127.0.0.1:${LLAMA_PORT}}" \
-  TEXT_MODEL="${TEXT_MODEL:-}" \
-  TEXT_API_KEY="${TEXT_API_KEY:-}" \
-  COMFY_URLS="$GO_COMFY_URLS" \
-  GO_WORKERS="$GO_WORKERS" \
-  "$go_gateway_bin" >"$go_log" 2>&1 &
-echo $! > "$RUN_DIR/go_gateway.pid"
+echo "[9/9] waiting go gateway health..."
 wait_http_ok "http://127.0.0.1:${GO_PORT}/healthz" "$GO_WAIT_SEC" "go_gateway" || {
-  tail -n 120 "$go_log" || true
-  die "go gateway boot failed"
+  tail -n 120 "$LOG_DIR/go_gateway.log" || true
+  die "go gateway not ready; supervisor will keep retrying"
 }
 
 echo ""
-echo "[ok] all services started"
+echo "[ok] all services are supervised"
 echo "Llama:       http://127.0.0.1:${LLAMA_PORT}/health"
 echo "ComfyUI UI:  http://127.0.0.1:${comfy_ports[0]}/"
 echo "Go Health:   http://127.0.0.1:${GO_PORT}/healthz"
@@ -483,3 +654,4 @@ echo "Go->Comfys:  ${GO_COMFY_URLS}"
 echo "Go Workers:  ${GO_WORKERS}"
 echo "Isolated:    ${COMFY_ISOLATED} (${ISOLATED_ROOT})"
 echo "Logs:        ${LOG_DIR}"
+echo "Status:      scripts/start_multi_stack.sh status"

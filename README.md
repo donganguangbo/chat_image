@@ -35,7 +35,14 @@ go mod tidy
 go run .
 ```
 
-服务器使用 Docker Compose 部署时，按 [docs/DOCKER_COMPOSE.md](docs/DOCKER_COMPOSE.md) 操作。
+GPUHub 这类不能运行 Docker 的容器使用项目 Supervisor 守护：
+
+```bash
+./scripts/start_multi_stack.sh
+./scripts/start_multi_stack.sh status
+```
+
+进程退出、HTTP 卡死重启和日志轮转见 [docs/PROCESS_SUPERVISION.md](docs/PROCESS_SUPERVISION.md)。支持 Docker 的服务器也可以按 [docs/DOCKER_COMPOSE.md](docs/DOCKER_COMPOSE.md) 部署。
 
 多 Comfy 示例：
 
