@@ -13,6 +13,10 @@ LLAMA_MMPROJ="${LLAMA_MMPROJ:-$PROJECT_ROOT/models/llama/mmproj-Qwen3.6-35B-A3B-
 LLAMA_CTX_SIZE="${LLAMA_CTX_SIZE:-16384}"
 LLAMA_NGL="${LLAMA_NGL:-999}"
 LLAMA_NO_CACHE_PROMPT="${LLAMA_NO_CACHE_PROMPT:-1}"
+LLAMA_REASONING_MODE="${LLAMA_REASONING_MODE:-on}"
+LLAMA_REASONING_BUDGET_TOKENS="${LLAMA_REASONING_BUDGET_TOKENS:-4096}"
+LLAMA_REASONING_FORMAT="${LLAMA_REASONING_FORMAT:-deepseek}"
+LLAMA_REASONING_BUDGET_MESSAGE="${LLAMA_REASONING_BUDGET_MESSAGE:-Reasoning budget reached. Stop analysis and output the final answer now, strictly following the requested format.}"
 # DRY sampler: suppresses the degenerate repetition loops that make the reasoning
 # model occasionally run away (generating to the context ceiling → truncated →
 # empty answer). Only penalizes long verbatim repeats, so normal thinking is
@@ -517,6 +521,10 @@ llama_args=(
   --port "$LLAMA_PORT"
   -c "$LLAMA_CTX_SIZE"
   -ngl "$LLAMA_NGL"
+  --reasoning "$LLAMA_REASONING_MODE"
+  --reasoning-budget "$LLAMA_REASONING_BUDGET_TOKENS"
+  --reasoning-format "$LLAMA_REASONING_FORMAT"
+  --reasoning-budget-message "$LLAMA_REASONING_BUDGET_MESSAGE"
 )
 if [[ -n "$LLAMA_MMPROJ" ]]; then
   llama_args+=(--mmproj "$LLAMA_MMPROJ")

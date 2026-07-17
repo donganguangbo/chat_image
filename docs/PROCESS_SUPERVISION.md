@@ -97,6 +97,15 @@ tail -F logs/supervisord.log logs/health_monitor.log logs/memory_guard.log logs/
 | `COMFY_WAIT_SEC` | `120` | ComfyUI 启动宽限时间 |
 | `GO_WAIT_SEC` | `60` | Go Gateway 启动宽限时间 |
 
+本地文字模型默认保留 thinking，并把单次推理预算限制为 `4096 token`。预算耗尽时 llama.cpp 会结束推理并继续生成最终答案；普通请求不需要增加额外字段。可通过以下变量调整：
+
+| 变量 | 默认值 | 说明 |
+| --- | ---: | --- |
+| `LLAMA_REASONING_MODE` | `on` | llama.cpp reasoning 模式 |
+| `LLAMA_REASONING_BUDGET_TOKENS` | `4096` | 单次 thinking token 上限；`-1` 表示不限制 |
+| `LLAMA_REASONING_FORMAT` | `deepseek` | 将推理放在 `reasoning_content`，最终答案放在 `content` |
+| `LLAMA_REASONING_BUDGET_MESSAGE` | 见 `.env.example` | 预算耗尽时注入的最终答案指令 |
+
 ## 内存保护
 
 默认在启动时尝试把当前 cgroup 的 `memory.high` 设置为 `108 GiB`。如果平台不允许写入，服务仍会启动，并在 `memory_guard.log` 记录警告。已有的更低软限制不会被提高。
