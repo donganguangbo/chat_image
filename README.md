@@ -38,6 +38,7 @@ go run .
 GPUHub 这类不能运行 Docker 的容器使用项目 Supervisor 守护：
 
 ```bash
+apt-get update && apt-get install -y ffmpeg libavif-bin
 ./scripts/start_multi_stack.sh
 ./scripts/start_multi_stack.sh status
 ```

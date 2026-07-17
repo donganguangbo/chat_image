@@ -22,15 +22,19 @@ const (
 	ffmpegVideoTimeout = 5 * time.Minute
 )
 
-// runFFmpeg executes ffmpeg with a hard timeout, returning combined output.
-func runFFmpeg(timeout time.Duration, args ...string) ([]byte, error) {
+func runMediaCommand(timeout time.Duration, command string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "ffmpeg", args...).CombinedOutput()
+	out, err := exec.CommandContext(ctx, command, args...).CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
-		return out, fmt.Errorf("ffmpeg timed out after %s", timeout)
+		return out, fmt.Errorf("%s timed out after %s", command, timeout)
 	}
 	return out, err
+}
+
+// runFFmpeg executes ffmpeg with a hard timeout, returning combined output.
+func runFFmpeg(timeout time.Duration, args ...string) ([]byte, error) {
+	return runMediaCommand(timeout, "ffmpeg", args...)
 }
 
 // generatedMediaConverter transcodes content and returns the path of the
@@ -141,18 +145,28 @@ func convertImageBytesToAVIF(content []byte, sourceExt string) (string, func(), 
 		"-an",
 		"-pix_fmt", "yuv420p",
 	}
-	attempts := []struct {
-		name string
-		args []string
-	}{
-		{"libsvtav1", append(append([]string{}, baseArgs...), "-c:v", "libsvtav1", "-crf", "30", "-preset", "8", outputPath)},
-		{"libaom-av1", append(append([]string{}, baseArgs...), "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "6", outputPath)},
-		{"default-av1", append(append([]string{}, baseArgs...), "-crf", "30", outputPath)},
+	type conversionAttempt struct {
+		name    string
+		command string
+		args    []string
 	}
+	attempts := make([]conversionAttempt, 0, 4)
+	if _, err := exec.LookPath("avifenc"); err == nil {
+		attempts = append(attempts, conversionAttempt{
+			name:    "avifenc",
+			command: "avifenc",
+			args:    []string{"--min", "20", "--max", "30", "--speed", "6", inputPath, outputPath},
+		})
+	}
+	attempts = append(attempts,
+		conversionAttempt{"ffmpeg-libsvtav1", "ffmpeg", append(append([]string{}, baseArgs...), "-c:v", "libsvtav1", "-crf", "30", "-preset", "8", "-f", "avif", outputPath)},
+		conversionAttempt{"ffmpeg-libaom-av1", "ffmpeg", append(append([]string{}, baseArgs...), "-c:v", "libaom-av1", "-crf", "30", "-b:v", "0", "-cpu-used", "6", "-f", "avif", outputPath)},
+		conversionAttempt{"ffmpeg-default-av1", "ffmpeg", append(append([]string{}, baseArgs...), "-crf", "30", "-f", "avif", outputPath)},
+	)
 	var failures []string
 	for _, attempt := range attempts {
 		_ = os.Remove(outputPath)
-		output, err := runFFmpeg(ffmpegImageTimeout, attempt.args...)
+		output, err := runMediaCommand(ffmpegImageTimeout, attempt.command, attempt.args...)
 		if err != nil {
 			msg := strings.TrimSpace(string(output))
 			if msg == "" {
@@ -169,7 +183,7 @@ func convertImageBytesToAVIF(content []byte, sourceExt string) (string, func(), 
 		return outputPath, cleanup, nil
 	}
 	cleanup()
-	return "", nil, fmt.Errorf("ffmpeg AVIF conversion failed: %s", strings.Join(failures, "; "))
+	return "", nil, fmt.Errorf("AVIF conversion failed: %s", strings.Join(failures, "; "))
 }
 
 // convertVideoBytesToH264MP4 transcodes to H.264 / AAC-less MP4 (yuv420p +

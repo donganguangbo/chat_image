@@ -157,6 +157,11 @@ wait_http_ok() {
   done
 }
 
+avif_encoder_available() {
+  command -v avifenc >/dev/null 2>&1 && return 0
+  ffmpeg -hide_banner -muxers 2>/dev/null | awk '$2 == "avif" { found=1 } END { exit !found }'
+}
+
 kill_by_pattern() {
   local pattern="$1"
   mapfile -t pids < <(pgrep -f "$pattern" 2>/dev/null || true)
@@ -432,6 +437,8 @@ EOF
 [[ -f "$LLAMA_MODEL" ]] || die "llama model not found: $LLAMA_MODEL"
 [[ -z "$LLAMA_MMPROJ" || -f "$LLAMA_MMPROJ" ]] || die "llama mmproj not found: $LLAMA_MMPROJ"
 command -v "$GO_BIN" >/dev/null 2>&1 || die "Go not found: $GO_BIN"
+command -v ffmpeg >/dev/null 2>&1 || die "ffmpeg not found (install: apt-get install ffmpeg)"
+avif_encoder_available || die "AVIF encoder not found (install: apt-get install libavif-bin, or use FFmpeg with AVIF muxer support)"
 command -v "$SUPERVISORD_BIN" >/dev/null 2>&1 || die "supervisord not found (install: python3 -m pip install supervisor)"
 command -v "$SUPERVISORCTL_BIN" >/dev/null 2>&1 || die "supervisorctl not found (install: python3 -m pip install supervisor)"
 command -v "$SUPERVISOR_PYTHON" >/dev/null 2>&1 || die "Supervisor Python not found: $SUPERVISOR_PYTHON"
