@@ -12,7 +12,10 @@ import (
 // the poll loop bails out instead of waiting for the full task timeout. With a
 // 1s ticker, connection-refused fails in ~this many seconds; a black-holed host
 // (dial timeout ~10s each) takes longer but still far under the 1800s ceiling.
-const pollFailFastThreshold = 20
+const (
+	pollFailFastThreshold      = 20
+	pollMissingPromptThreshold = 5
+)
 
 func (s *Server) waitForPromptOutputs(
 	comfy *ComfyClient,
@@ -43,6 +46,10 @@ func (s *Server) waitForPromptOutputs(
 	// job is still running. Bail out early instead of pinning this worker until
 	// the full timeoutSec (default 1800s). Reset on any successful poll.
 	consecutiveNetErrs := 0
+	// A fast Comfy restart can be missed by the transport-error threshold. Once
+	// the server is reachable again, the old prompt exists in neither history nor
+	// queue; detect that state instead of polling an empty history for 30 minutes.
+	consecutiveMissing := 0
 
 	for {
 		select {
@@ -52,6 +59,7 @@ func (s *Server) waitForPromptOutputs(
 			history, err := comfy.GetHistory(promptID)
 			if err == nil {
 				consecutiveNetErrs = 0
+				lastErr = nil
 				if entry := findHistoryEntry(history, promptID); entry != nil {
 					if historyErr := extractComfyHistoryError(entry); historyErr != "" {
 						return nil, fmt.Errorf("comfy workflow failed: %s", historyErr)
@@ -62,8 +70,21 @@ func (s *Server) waitForPromptOutputs(
 					}
 					return outputs, nil
 				}
+				if queued, queueErr := comfy.PromptQueued(promptID); queueErr == nil {
+					if queued {
+						consecutiveMissing = 0
+					} else {
+						consecutiveMissing++
+						if consecutiveMissing >= pollMissingPromptThreshold {
+							log.Printf("[poll prompt lost] task=%s backend=%s prompt_id=%s: absent from history and queue for %d consecutive polls",
+								taskID, comfy.BaseURL, promptID, consecutiveMissing)
+							return nil, fmt.Errorf("comfy prompt %s disappeared from history and queue; backend likely restarted", promptID)
+						}
+					}
+				}
 			} else {
 				lastErr = err
+				consecutiveMissing = 0
 				if isRetryableNetErr(err) {
 					consecutiveNetErrs++
 					if consecutiveNetErrs >= pollFailFastThreshold {

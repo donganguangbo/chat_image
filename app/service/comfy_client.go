@@ -311,6 +311,37 @@ func (c *ComfyClient) GetHistory(promptID string) (map[string]any, error) {
 	return out, nil
 }
 
+// PromptQueued reports whether promptID is still running or waiting in ComfyUI.
+func (c *ComfyClient) PromptQueued(promptID string) (bool, error) {
+	resp, err := c.HTTP.Get(c.BaseURL + "/queue")
+	if err != nil {
+		return false, err
+	}
+	defer drainClose(resp.Body)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return false, fmt.Errorf("comfy /queue failed: %s", strings.TrimSpace(string(raw)))
+	}
+	var out struct {
+		Running []any `json:"queue_running"`
+		Pending []any `json:"queue_pending"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return false, err
+	}
+	return queueContainsPrompt(out.Running, promptID) || queueContainsPrompt(out.Pending, promptID), nil
+}
+
+func queueContainsPrompt(entries []any, promptID string) bool {
+	for _, entry := range entries {
+		item, ok := entry.([]any)
+		if ok && len(item) > 1 && asString(item[1]) == promptID {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *ComfyClient) ViewFile(filename, subfolder, fileType string) ([]byte, error) {
 	q := url.Values{}
 	q.Set("filename", filename)
