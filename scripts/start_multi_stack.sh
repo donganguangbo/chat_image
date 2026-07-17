@@ -55,6 +55,13 @@ HEALTH_CHECK_INTERVAL="${HEALTH_CHECK_INTERVAL:-10}"
 HEALTH_FAILURE_THRESHOLD="${HEALTH_FAILURE_THRESHOLD:-6}"
 HEALTH_CHECK_TIMEOUT="${HEALTH_CHECK_TIMEOUT:-5}"
 HEALTH_RETRY_INTERVAL="${HEALTH_RETRY_INTERVAL:-30}"
+MEMORY_GUARD_ENABLED="${MEMORY_GUARD_ENABLED:-1}"
+CGROUP_DIR="${CGROUP_DIR:-/sys/fs/cgroup}"
+CGROUP_MEMORY_HIGH_GIB="${CGROUP_MEMORY_HIGH_GIB:-108}"
+MEMORY_RECLAIM_THRESHOLD_GIB="${MEMORY_RECLAIM_THRESHOLD_GIB:-105}"
+MEMORY_RECLAIM_INTERVAL="${MEMORY_RECLAIM_INTERVAL:-10}"
+MEMORY_RECLAIM_COOLDOWN="${MEMORY_RECLAIM_COOLDOWN:-300}"
+MEMORY_RECLAIM_MIN_FILE_MIB="${MEMORY_RECLAIM_MIN_FILE_MIB:-64}"
 LOG_MAX_BYTES="${LOG_MAX_BYTES:-50MB}"
 LOG_BACKUPS="${LOG_BACKUPS:-5}"
 mkdir -p "$LOG_DIR" "$RUN_DIR"
@@ -552,6 +559,28 @@ chmod 600 "$SUPERVISOR_CONFIG"
 llama_command="$(supervisor_command "$LLAMA_BIN" "${llama_args[@]}")"
 append_supervisor_program \
   "llama" "$PROJECT_ROOT" "$llama_command" "$LOG_DIR/llama.log" 5 30 10
+
+if [[ "$MEMORY_GUARD_ENABLED" == "1" ]]; then
+  memory_guard_args=(
+    "$SUPERVISOR_PYTHON" -u "$PROJECT_ROOT/scripts/memory_guard.py"
+    --cgroup-dir "$CGROUP_DIR"
+    --memory-high-gib "$CGROUP_MEMORY_HIGH_GIB"
+    --reclaim-threshold-gib "$MEMORY_RECLAIM_THRESHOLD_GIB"
+    --interval "$MEMORY_RECLAIM_INTERVAL"
+    --cooldown "$MEMORY_RECLAIM_COOLDOWN"
+    --startup-grace "$COMFY_WAIT_SEC"
+    --request-timeout "$HEALTH_CHECK_TIMEOUT"
+    --models-root "$PROJECT_ROOT/models"
+    --exclude-root "$PROJECT_ROOT/models/llama"
+    --min-file-size-mib "$MEMORY_RECLAIM_MIN_FILE_MIB"
+  )
+  for p in "${comfy_ports[@]}"; do
+    memory_guard_args+=(--comfy-url "http://127.0.0.1:${p}")
+  done
+  memory_guard_command="$(supervisor_command "${memory_guard_args[@]}")"
+  append_supervisor_program \
+    "memory_guard" "$PROJECT_ROOT" "$memory_guard_command" "$LOG_DIR/memory_guard.log" 1 10 5
+fi
 
 monitor_args=(
   "$SUPERVISOR_PYTHON" -u "$PROJECT_ROOT/scripts/health_monitor.py"
