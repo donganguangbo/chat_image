@@ -99,7 +99,7 @@
     "inputs": {
       "cfg": 1,
       "model": [
-        "285",
+        "329",
         0
       ],
       "positive": [
@@ -427,15 +427,6 @@
       "title": "Video Prompt"
     }
   },
-  "328": {
-    "inputs": {
-      "value": "1girl, solo, standing, simple background"
-    },
-    "class_type": "PrimitiveStringMultiline",
-    "_meta": {
-      "title": "Reference Pose Prompt"
-    }
-  },
   "304": {
     "inputs": {
       "text": [
@@ -625,7 +616,7 @@
     "inputs": {
       "cfg": 1,
       "model": [
-        "285",
+        "329",
         0
       ],
       "positive": [
@@ -819,6 +810,29 @@
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
       "title": "TextEncodeQwenImageEditPlus Input Prompt"
+    }
+  },
+  "328": {
+    "inputs": {
+      "value": "1girl, solo, standing, simple background"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "Reference Pose Prompt"
+    }
+  },
+  "329": {
+    "inputs": {
+      "lora_name": "ltx2.3_nsfw_furry.safetensors",
+      "strength_model": 1,
+      "model": [
+        "285",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoRA加载器（NSFW运动）"
     }
   }
 }
