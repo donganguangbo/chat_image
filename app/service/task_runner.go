@@ -253,7 +253,11 @@ func (s *Server) prepareAndSubmit(taskID string, cfg WorkflowConfig, tpl map[str
 		durationSec := getInt(params["duration_sec"], 0)
 		fps := getInt(params["fps"], 0)
 		if durationSec > 0 && fps > 0 {
-			params["length_frames"] = durationSec * fps
+			// LTX requires 8n+1 frame counts (official pipelines use 121, never
+			// 120): the temporal VAE compresses 8 frames per latent step plus
+			// the anchor frame. A flat duration*fps lands off-grid and degrades
+			// temporal stability.
+			params["length_frames"] = durationSec*fps + 1
 		}
 	}
 	for _, key := range []string{"input_image", "input_image_end"} {
