@@ -424,7 +424,7 @@
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "Video Prompt"
+      "title": "Motion Prompt"
     }
   },
   "304": {
@@ -609,7 +609,7 @@
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
-      "title": "CLIP文本编码"
+      "title": "Motion Negative Prompt"
     }
   },
   "316": {
@@ -751,7 +751,7 @@
     },
     "class_type": "TextEncodeQwenImageEditPlus",
     "_meta": {
-      "title": "TextEncodeQwenImageEditPlus Negative (leave blank)"
+      "title": "First-frame Negative Prompt"
     }
   },
   "324": {
@@ -772,7 +772,7 @@
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Optional Input Image"
+      "title": "Partner Identity Image"
     }
   },
   "326": {
@@ -781,7 +781,7 @@
     },
     "class_type": "LoadImage",
     "_meta": {
-      "title": "Optional Input Image"
+      "title": "Source Image"
     }
   },
   "327": {
@@ -818,7 +818,7 @@
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "Reference Pose Prompt"
+      "title": "First-frame Prompt"
     }
   },
   "329": {

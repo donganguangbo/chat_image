@@ -18,8 +18,8 @@ func newTestV1Server() *service.Server {
 	workflows := map[string]service.WorkflowConfig{
 		"wf_t2i":  {ID: "wf_t2i", Mode: "t2i", Defaults: map[string]any{}, Required: []string{"prompt"}},
 		"wf_edit": {ID: "wf_edit", Mode: "image_edit", Defaults: map[string]any{}, Required: []string{"prompt", "input_image_base64"}},
-		"wf_t2v":  {ID: "wf_t2v", Mode: "text_to_video", Defaults: map[string]any{}, Required: []string{"prompt"}},
-		"wf_i2v":  {ID: "wf_i2v", Mode: "i2v", Defaults: map[string]any{}, Required: []string{"prompt", "input_image_url"}},
+		"wf_t2v":  {ID: "wf_t2v", Mode: "text_to_video", Defaults: map[string]any{}, Required: []string{"motion_prompt", "motion_negative_prompt"}},
+		"wf_i2v":  {ID: "wf_i2v", Mode: "i2v", Defaults: map[string]any{}, Required: []string{"motion_prompt", "motion_negative_prompt", "first_frame_prompt", "first_frame_negative_prompt", "source_image"}},
 	}
 	return service.NewServer(
 		workflows,
@@ -137,7 +137,7 @@ func TestV1ImageEditRouteKeepsRequestedSize(t *testing.T) {
 
 func TestV1VideoRoutes(t *testing.T) {
 	s := newTestV1Server()
-	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{"prompt":"move","size":"1280x720","seconds":4}`, "application/json")
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{"motion_prompt":"move continuously","motion_negative_prompt":"camera movement","size":"1280x720","seconds":4}`, "application/json")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("create status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
 	}
@@ -168,6 +168,137 @@ func TestV1VideoRoutes(t *testing.T) {
 	}
 	if got := rec.Header().Get("Location"); got != "/outputs/videos/out.mp4" {
 		t.Fatalf("Location = %q, want /outputs/videos/out.mp4", got)
+	}
+}
+
+func TestV1ImageToVideoUsesExplicitStageInputs(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{
+		"motion_prompt":"continuous movement",
+		"motion_negative_prompt":"camera movement, shot change",
+		"first_frame_prompt":"configured first frame",
+		"first_frame_negative_prompt":"bad anatomy, fused bodies",
+		"source_image":{"image_url":"https://cdn.example/source.png"},
+		"partner_identity_image":{"image_base64":"data:image/png;base64,partner"},
+		"size":"1024x1280",
+		"seconds":5,
+		"resolution":"480p",
+		"quality":"standard"
+	}`, "application/json")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	task := s.GetTask(created.ID)
+	if task == nil || task.WorkflowID != "wf_i2v" {
+		t.Fatalf("task = %+v", task)
+	}
+	for key, want := range map[string]string{
+		"motion_prompt":                 "continuous movement",
+		"motion_negative_prompt":        "camera movement, shot change",
+		"first_frame_prompt":            "configured first frame",
+		"first_frame_negative_prompt":   "bad anatomy, fused bodies",
+		"source_image_url":              "https://cdn.example/source.png",
+		"partner_identity_image_base64": "data:image/png;base64,partner",
+	} {
+		if got := task.Params[key]; got != want {
+			t.Fatalf("params[%s] = %v, want %q", key, got, want)
+		}
+	}
+}
+
+func TestV1VideoAcceptsLegacyTextContract(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{
+		"prompt":"move continuously",
+		"size":"1280x720",
+		"duration_sec":4,
+		"params":{"resolution":"480p","quality":"standard"}
+	}`, "application/json")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	task := s.GetTask(created.ID)
+	if task == nil || task.WorkflowID != "wf_t2v" {
+		t.Fatalf("task = %+v", task)
+	}
+	for key, want := range map[string]any{
+		"motion_prompt":          "move continuously",
+		"motion_negative_prompt": "camera movement, shot change, slow motion, frozen motion, extra person, temporal discontinuity",
+		"resolution":             "480p",
+		"quality":                "standard",
+	} {
+		if got := task.Params[key]; got != want {
+			t.Fatalf("params[%s] = %v, want %v", key, got, want)
+		}
+	}
+	if got := intParam(task.Params["duration_sec"]); got != 4 {
+		t.Fatalf("params[duration_sec] = %v, want 4", task.Params["duration_sec"])
+	}
+}
+
+func TestV1VideoAcceptsLegacyImageContract(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{
+		"prompt":"continuous movement",
+		"input_reference":{"image_url":"https://cdn.example/source.png"},
+		"size":"1024x1280",
+		"seconds":5,
+		"params":{
+			"negative_prompt":"bad anatomy, camera movement",
+			"image_edit_prompt":"configured first frame",
+			"input_image_end_base64":"data:image/png;base64,partner",
+			"resolution":"480p",
+			"quality":"standard"
+		}
+	}`, "application/json")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+		t.Fatal(err)
+	}
+	task := s.GetTask(created.ID)
+	if task == nil || task.WorkflowID != "wf_i2v" {
+		t.Fatalf("task = %+v", task)
+	}
+	for key, want := range map[string]string{
+		"motion_prompt":                 "continuous movement",
+		"motion_negative_prompt":        "bad anatomy, camera movement",
+		"first_frame_prompt":            "configured first frame",
+		"first_frame_negative_prompt":   "bad anatomy, camera movement",
+		"source_image_url":              "https://cdn.example/source.png",
+		"partner_identity_image_base64": "data:image/png;base64,partner",
+	} {
+		if got := task.Params[key]; got != want {
+			t.Fatalf("params[%s] = %v, want %q", key, got, want)
+		}
+	}
+}
+
+func TestV1VideoRejectsMixedContracts(t *testing.T) {
+	s := newTestV1Server()
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{
+		"prompt":"legacy motion",
+		"motion_prompt":"explicit motion",
+		"motion_negative_prompt":"camera movement"
+	}`, "application/json")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "must not mix") {
+		t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
 }
 

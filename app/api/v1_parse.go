@@ -10,6 +10,11 @@ import (
 	"strings"
 )
 
+const (
+	legacyVideoMotionNegative     = "camera movement, shot change, slow motion, frozen motion, extra person, temporal discontinuity"
+	legacyVideoFirstFrameNegative = "bad anatomy, fused bodies, extra limbs, duplicate person, malformed hands"
+)
+
 func parseImageEditRequest(r *http.Request) (V1ImageRequest, error) {
 	ct := r.Header.Get("Content-Type")
 	if strings.HasPrefix(ct, "multipart/form-data") {
@@ -94,4 +99,104 @@ func copyCommonParams(params map[string]any, model, user string) {
 	if user = strings.TrimSpace(user); user != "" {
 		params["user"] = user
 	}
+}
+
+func videoImageReferencePresent(ref V1VideoImageReference) bool {
+	return strings.TrimSpace(ref.Image) != "" ||
+		strings.TrimSpace(ref.ImageURL) != "" ||
+		strings.TrimSpace(ref.ImageBase64) != ""
+}
+
+func videoParamString(params map[string]any, key string) string {
+	value, _ := params[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func legacyVideoImageReference(params map[string]any, key string) V1VideoImageReference {
+	return V1VideoImageReference{
+		Image:       videoParamString(params, key),
+		ImageURL:    videoParamString(params, key+"_url"),
+		ImageBase64: videoParamString(params, key+"_base64"),
+	}
+}
+
+func normalizeVideoRequest(req V1VideoRequest) (V1VideoRequest, error) {
+	usesExplicitContract := strings.TrimSpace(req.MotionPrompt) != "" ||
+		strings.TrimSpace(req.MotionNegativePrompt) != "" ||
+		strings.TrimSpace(req.FirstFramePrompt) != "" ||
+		strings.TrimSpace(req.FirstFrameNegativePrompt) != "" ||
+		videoImageReferencePresent(req.SourceImage) ||
+		videoImageReferencePresent(req.PartnerIdentityImage)
+	usesLegacyContract := strings.TrimSpace(req.Prompt) != "" ||
+		req.DurationSec != 0 ||
+		strings.TrimSpace(req.Model) != "" ||
+		strings.TrimSpace(req.User) != "" ||
+		len(req.Params) != 0 ||
+		videoImageReferencePresent(req.InputReference)
+
+	if usesExplicitContract && usesLegacyContract {
+		return V1VideoRequest{}, fmt.Errorf("video request must not mix legacy and explicit fields")
+	}
+	if !usesLegacyContract {
+		return req, nil
+	}
+
+	legacyNegativePrompt := videoParamString(req.Params, "negative_prompt")
+	motionNegativePrompt := legacyNegativePrompt
+	if motionNegativePrompt == "" {
+		motionNegativePrompt = legacyVideoMotionNegative
+	}
+	seconds := req.Seconds
+	if seconds == 0 {
+		seconds = req.DurationSec
+	}
+	firstFramePrompt := ""
+	firstFrameNegativePrompt := ""
+	if videoImageReferencePresent(req.InputReference) {
+		firstFramePrompt = videoParamString(req.Params, "image_edit_prompt")
+		firstFrameNegativePrompt = legacyNegativePrompt
+		if firstFrameNegativePrompt == "" {
+			firstFrameNegativePrompt = legacyVideoFirstFrameNegative
+		}
+	}
+	return V1VideoRequest{
+		MotionPrompt:             strings.TrimSpace(req.Prompt),
+		MotionNegativePrompt:     motionNegativePrompt,
+		FirstFramePrompt:         firstFramePrompt,
+		FirstFrameNegativePrompt: firstFrameNegativePrompt,
+		Size:                     req.Size,
+		Seconds:                  seconds,
+		Resolution:               videoParamString(req.Params, "resolution"),
+		Quality:                  videoParamString(req.Params, "quality"),
+		SourceImage:              req.InputReference,
+		PartnerIdentityImage:     legacyVideoImageReference(req.Params, "input_image_end"),
+	}, nil
+}
+
+func copyVideoImageReference(params map[string]any, key string, ref V1VideoImageReference) (bool, error) {
+	image := strings.TrimSpace(ref.Image)
+	imageURL := strings.TrimSpace(ref.ImageURL)
+	imageBase64 := strings.TrimSpace(ref.ImageBase64)
+	populated := 0
+	for _, value := range []string{image, imageURL, imageBase64} {
+		if value != "" {
+			populated++
+		}
+	}
+	if populated > 1 {
+		return false, fmt.Errorf("%s must contain exactly one of image, image_url or image_base64", key)
+	}
+	if image != "" {
+		params[key] = image
+		return true, nil
+	}
+	if imageURL != "" {
+		params[key+"_url"] = imageURL
+		return true, nil
+	}
+	if imageBase64 != "" {
+		params[key+"_base64"] = imageBase64
+		return true, nil
+	}
+	return false, nil
 }

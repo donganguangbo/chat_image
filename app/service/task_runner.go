@@ -260,7 +260,11 @@ func (s *Server) prepareAndSubmit(taskID string, cfg WorkflowConfig, tpl map[str
 			params["length_frames"] = durationSec*fps + 1
 		}
 	}
-	for _, key := range []string{"input_image", "input_image_end"} {
+	imageParams := []string{"input_image", "input_image_end"}
+	if cfg.Mode == "i2v" {
+		imageParams = []string{"source_image", "partner_identity_image"}
+	}
+	for _, key := range imageParams {
 		uploadTransport, merr := s.materializeImageParam(comfy, taskID, params, key)
 		if merr != nil {
 			// Only a comfy UploadImage transport failure is failover-worthy; a
@@ -278,6 +282,11 @@ func (s *Server) prepareAndSubmit(taskID string, cfg WorkflowConfig, tpl map[str
 	}
 	if err := applyBindings(rendered, cfg.Bindings, params); err != nil {
 		return nil, "", true, fmt.Errorf("apply bindings failed: %w", err)
+	}
+	if cfg.Mode == "i2v" {
+		if err := applyOptionalI2VPartnerIdentity(rendered, params); err != nil {
+			return nil, "", true, fmt.Errorf("configure partner identity failed: %w", err)
+		}
 	}
 	if cfg.Mode == "image_edit" || cfg.Mode == "t2i" || cfg.Mode == "i2v" {
 		if err := applyOptionalLora(rendered, params, cfg.Mode); err != nil {

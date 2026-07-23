@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"strings"
 
@@ -94,13 +95,29 @@ func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req V1VideoRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	prompt := strings.TrimSpace(req.Prompt)
-	if prompt == "" {
-		writeAPIError(w, http.StatusBadRequest, "prompt is required")
+	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+		writeAPIError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	req, err := normalizeVideoRequest(req)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	motionPrompt := strings.TrimSpace(req.MotionPrompt)
+	if motionPrompt == "" {
+		writeAPIError(w, http.StatusBadRequest, "motion_prompt is required")
+		return
+	}
+	motionNegativePrompt := strings.TrimSpace(req.MotionNegativePrompt)
+	if motionNegativePrompt == "" {
+		writeAPIError(w, http.StatusBadRequest, "motion_negative_prompt is required")
 		return
 	}
 	width, height, err := parseSize(req.Size)
@@ -109,27 +126,51 @@ func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	params := cloneMap(req.Params)
-	copyCommonParams(params, req.Model, req.User)
-	duration := req.DurationSec
-	if duration == 0 {
-		duration = req.Seconds
+	params := map[string]any{
+		"motion_prompt":          motionPrompt,
+		"motion_negative_prompt": motionNegativePrompt,
 	}
-	if duration > 0 {
-		params["duration_sec"] = duration
+	if req.Seconds > 0 {
+		params["duration_sec"] = req.Seconds
+	}
+	if resolution := strings.TrimSpace(req.Resolution); resolution != "" {
+		params["resolution"] = resolution
+	}
+	if quality := strings.TrimSpace(req.Quality); quality != "" {
+		params["quality"] = quality
 	}
 	category := "t2v"
-	if v := strings.TrimSpace(req.InputReference.Image); v != "" {
-		params["input_image"] = v
-		category = "i2v"
+	hasSourceImage, err := copyVideoImageReference(params, "source_image", req.SourceImage)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
 	}
-	if v := strings.TrimSpace(req.InputReference.ImageURL); v != "" {
-		params["input_image_url"] = v
+	if hasSourceImage {
 		category = "i2v"
+		firstFramePrompt := strings.TrimSpace(req.FirstFramePrompt)
+		firstFrameNegativePrompt := strings.TrimSpace(req.FirstFrameNegativePrompt)
+		if firstFramePrompt == "" {
+			writeAPIError(w, http.StatusBadRequest, "first_frame_prompt is required for image-to-video")
+			return
+		}
+		if firstFrameNegativePrompt == "" {
+			writeAPIError(w, http.StatusBadRequest, "first_frame_negative_prompt is required for image-to-video")
+			return
+		}
+		params["first_frame_prompt"] = firstFramePrompt
+		params["first_frame_negative_prompt"] = firstFrameNegativePrompt
+	} else if strings.TrimSpace(req.FirstFramePrompt) != "" || strings.TrimSpace(req.FirstFrameNegativePrompt) != "" {
+		writeAPIError(w, http.StatusBadRequest, "source_image is required when first-frame prompts are provided")
+		return
 	}
-	if v := strings.TrimSpace(req.InputReference.ImageBase64); v != "" {
-		params["input_image_base64"] = v
-		category = "i2v"
+	hasPartnerIdentity, err := copyVideoImageReference(params, "partner_identity_image", req.PartnerIdentityImage)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if hasPartnerIdentity && !hasSourceImage {
+		writeAPIError(w, http.StatusBadRequest, "source_image is required with partner_identity_image")
+		return
 	}
 
 	workflowID := h.service.WorkflowForCategory(category)
@@ -139,7 +180,7 @@ func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	task, err := h.service.CreateTask(service.CreateTaskRequest{
 		WorkflowID: workflowID,
-		Prompt:     prompt,
+		Prompt:     motionPrompt,
 		Width:      width,
 		Height:     height,
 		Params:     params,

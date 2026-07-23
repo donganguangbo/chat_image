@@ -316,7 +316,7 @@
     },
     "class_type": "PrimitiveStringMultiline",
     "_meta": {
-      "title": "Prompt"
+      "title": "Motion Prompt"
     }
   },
   "304": {
@@ -501,7 +501,7 @@
     },
     "class_type": "CLIPTextEncode",
     "_meta": {
-      "title": "CLIP文本编码"
+      "title": "Motion Negative Prompt"
     }
   },
   "316": {

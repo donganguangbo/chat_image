@@ -127,7 +127,7 @@ func applyBindings(prompt map[string]any, bindings []InputBinding, params map[st
 		inputName := strings.TrimSpace(b.Input)
 		paramName := strings.TrimSpace(b.Param)
 		if nodeID == "" || inputName == "" || paramName == "" {
-			continue
+			return fmt.Errorf("invalid empty workflow binding: node=%q input=%q param=%q", nodeID, inputName, paramName)
 		}
 		val, ok := params[paramName]
 		if !ok {
@@ -135,11 +135,14 @@ func applyBindings(prompt map[string]any, bindings []InputBinding, params map[st
 		}
 		node, ok := prompt[nodeID].(map[string]any)
 		if !ok {
-			continue
+			return fmt.Errorf("workflow binding node %s is missing", nodeID)
 		}
 		inputs, ok := node["inputs"].(map[string]any)
 		if !ok {
-			continue
+			return fmt.Errorf("workflow binding node %s inputs are missing", nodeID)
+		}
+		if _, ok := inputs[inputName]; !ok {
+			return fmt.Errorf("workflow binding input %s.%s is missing", nodeID, inputName)
 		}
 		inputs[inputName] = val
 	}

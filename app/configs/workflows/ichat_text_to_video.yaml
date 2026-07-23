@@ -5,7 +5,7 @@ template_format: api
 mode: text_to_video
 output_kind: video
 timeout_sec: 1800
-required: [prompt]
+required: [motion_prompt, motion_negative_prompt]
 defaults:
   seed: -1
   width: 720
@@ -32,10 +32,10 @@ bindings:
     param: length_frames
   - node: "303"
     input: value
-    param: prompt
+    param: motion_prompt
   - node: "314"
     input: value
     param: width
   - node: "315"
     input: text
-    param: negative_prompt
+    param: motion_negative_prompt

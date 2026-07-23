@@ -210,3 +210,48 @@ func TestTextToImageWorkflowHasNoReferenceImages(t *testing.T) {
 		t.Fatalf("text to image model = %v", unet["unet_name"])
 	}
 }
+
+func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
+	workflowsDir := filepath.Join("..", "app", "configs", "workflows")
+
+	i2vRaw, err := os.ReadFile(filepath.Join(workflowsDir, "ichat_image_to_video.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var i2v model.WorkflowConfig
+	if err := yaml.Unmarshal(i2vRaw, &i2v); err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"motion_prompt", "motion_negative_prompt", "first_frame_prompt", "first_frame_negative_prompt", "source_image"} {
+		if !slices.Contains(i2v.Required, required) {
+			t.Fatalf("i2v required = %v, missing %s", i2v.Required, required)
+		}
+	}
+	for _, binding := range []struct{ node, input, param string }{
+		{"303", "value", "motion_prompt"},
+		{"315", "text", "motion_negative_prompt"},
+		{"328", "value", "first_frame_prompt"},
+		{"323", "prompt", "first_frame_negative_prompt"},
+		{"326", "image", "source_image"},
+		{"325", "image", "partner_identity_image"},
+	} {
+		if !hasBinding(i2v, binding.node, binding.input, binding.param) {
+			t.Fatalf("i2v missing binding %s.%s <- %s", binding.node, binding.input, binding.param)
+		}
+	}
+
+	t2vRaw, err := os.ReadFile(filepath.Join(workflowsDir, "ichat_text_to_video.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var t2v model.WorkflowConfig
+	if err := yaml.Unmarshal(t2vRaw, &t2v); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(t2v.Required, []string{"motion_prompt", "motion_negative_prompt"}) {
+		t.Fatalf("t2v required = %v", t2v.Required)
+	}
+	if !hasBinding(t2v, "303", "value", "motion_prompt") || !hasBinding(t2v, "315", "text", "motion_negative_prompt") {
+		t.Fatalf("t2v bindings = %+v", t2v.Bindings)
+	}
+}

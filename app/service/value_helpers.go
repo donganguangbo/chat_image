@@ -108,6 +108,10 @@ func hasRequiredParam(params map[string]any, key string) bool {
 		return !isEmptyValue(params["input_image_url"]) || !isEmptyValue(params["input_image_base64"])
 	case "input_image_end":
 		return !isEmptyValue(params["input_image_end_url"]) || !isEmptyValue(params["input_image_end_base64"])
+	case "source_image":
+		return !isEmptyValue(params["source_image_url"]) || !isEmptyValue(params["source_image_base64"])
+	case "partner_identity_image":
+		return !isEmptyValue(params["partner_identity_image_url"]) || !isEmptyValue(params["partner_identity_image_base64"])
 	default:
 		return false
 	}

@@ -5,7 +5,7 @@ template_format: api
 mode: i2v
 output_kind: video
 timeout_sec: 1800
-required: [prompt, input_image]
+required: [motion_prompt, motion_negative_prompt, first_frame_prompt, first_frame_negative_prompt, source_image]
 defaults:
   seed: -1
   steps: 4
@@ -34,16 +34,16 @@ bindings:
     param: length_frames
   - node: "303"
     input: value
-    param: prompt
+    param: motion_prompt
   - node: "328"
     input: value
-    param: image_edit_prompt
+    param: first_frame_prompt
   - node: "314"
     input: value
     param: width
   - node: "315"
     input: text
-    param: negative_prompt
+    param: motion_negative_prompt
   - node: "319"
     input: seed
     param: seed
@@ -55,13 +55,10 @@ bindings:
     param: cfg
   - node: "323"
     input: prompt
-    param: negative_prompt
+    param: first_frame_negative_prompt
   - node: "325"
     input: image
-    param: input_image
+    param: partner_identity_image
   - node: "326"
     input: image
-    param: input_image
-  - node: "325"
-    input: image
-    param: input_image_end
+    param: source_image
