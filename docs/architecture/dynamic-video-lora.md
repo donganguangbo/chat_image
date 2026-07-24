@@ -125,7 +125,7 @@ profiles:
   cumshot_v2:
     loras:
       - file: "LTX-2.3 - Cum Shot v2.0_rank64.safetensors"
-        strength: 0.8
+        strength: 1.5
 
 actions:
   cumshot: cumshot_v2
@@ -180,14 +180,14 @@ dynamic_lora:
 ```yaml
 dynamic_lora:
   catalog: ltx_2_3
-  anchor_node: "329"
+  anchor_node: "285"
 ```
 
 注入后的模型链：
 
 ```text
 文生视频：281 -> 285 -> 动态 LoRA 1 -> 动态 LoRA 2 -> 282/316
-图生视频：281 -> 285 -> 329 -> 动态 LoRA 1 -> 动态 LoRA 2 -> 282/316
+图生视频：281 -> 285 -> 动态 LoRA 1 -> 动态 LoRA 2 -> 329 -> 282/316
 ```
 
 `ltx-2.3-22b-distilled-lora-384-1.1.safetensors` 是通用固定 LoRA，

@@ -222,7 +222,7 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 	if err := yaml.Unmarshal(i2vRaw, &i2v); err != nil {
 		t.Fatal(err)
 	}
-	if i2v.DynamicLora.Catalog != "ltx_2_3" || i2v.DynamicLora.AnchorNode != "329" {
+	if i2v.DynamicLora.Catalog != "ltx_2_3" || i2v.DynamicLora.AnchorNode != "285" {
 		t.Fatalf("i2v dynamic_lora = %+v", i2v.DynamicLora)
 	}
 	for _, required := range []string{"motion_prompt", "motion_negative_prompt", "first_frame_prompt", "first_frame_negative_prompt", "source_image"} {
@@ -273,7 +273,7 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 		t.Fatalf("video lora actions = %+v", catalog.Actions)
 	}
 	profile := catalog.Profiles["cumshot_v2"]
-	if len(profile.Loras) != 1 || profile.Loras[0].File != "LTX-2.3 - Cum Shot v2.0_rank64.safetensors" || profile.Loras[0].Strength != 0.8 {
+	if len(profile.Loras) != 1 || profile.Loras[0].File != "LTX-2.3 - Cum Shot v2.0_rank64.safetensors" || profile.Loras[0].Strength != 1.5 {
 		t.Fatalf("cumshot_v2 profile = %+v", profile)
 	}
 }

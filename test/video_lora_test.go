@@ -26,14 +26,14 @@ func TestVideoLoraInjectionUsesActionID(t *testing.T) {
 		assertLora(t, prompt, "318", "expression.safetensors", 0.6)
 	})
 
-	t.Run("image to video injects after fixed loras", func(t *testing.T) {
-		prompt := captureVideoPrompt(t, "i2v", "329", "cumshot", []service.VideoLoraSpec{
+	t.Run("image to video injects before fixed lora", func(t *testing.T) {
+		prompt := captureVideoPrompt(t, "i2v", "285", "cumshot", []service.VideoLoraSpec{
 			{File: "action.safetensors", Strength: 0.8},
 		})
-		assertModelLink(t, prompt, "329", "285")
-		assertModelLink(t, prompt, "330", "329")
-		assertModelLink(t, prompt, "282", "330")
-		assertModelLink(t, prompt, "316", "330")
+		assertModelLink(t, prompt, "330", "285")
+		assertModelLink(t, prompt, "329", "330")
+		assertModelLink(t, prompt, "282", "329")
+		assertModelLink(t, prompt, "316", "329")
 	})
 
 	for _, actionID := range []string{"", "unmapped-action"} {
@@ -80,14 +80,18 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 	}))
 	defer backend.Close()
 
+	guiderSource := anchorNode
+	if mode == "i2v" {
+		guiderSource = "329"
+	}
 	template := map[string]any{
 		"281": map[string]any{"class_type": "CheckpointLoaderSimple", "inputs": map[string]any{}},
 		"285": map[string]any{
 			"class_type": "LoraLoaderModelOnly",
 			"inputs":     map[string]any{"model": []any{"281", 0}, "lora_name": "distilled.safetensors", "strength_model": 0.5},
 		},
-		"282": map[string]any{"class_type": "CFGGuider", "inputs": map[string]any{"model": []any{anchorNode, 0}}},
-		"316": map[string]any{"class_type": "CFGGuider", "inputs": map[string]any{"model": []any{anchorNode, 0}}},
+		"282": map[string]any{"class_type": "CFGGuider", "inputs": map[string]any{"model": []any{guiderSource, 0}}},
+		"316": map[string]any{"class_type": "CFGGuider", "inputs": map[string]any{"model": []any{guiderSource, 0}}},
 	}
 	if mode == "i2v" {
 		template["325"] = map[string]any{

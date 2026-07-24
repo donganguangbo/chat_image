@@ -7,7 +7,7 @@ output_kind: video
 timeout_sec: 1800
 dynamic_lora:
   catalog: ltx_2_3
-  anchor_node: "329"
+  anchor_node: "285"
 required: [motion_prompt, motion_negative_prompt, first_frame_prompt, first_frame_negative_prompt, source_image]
 defaults:
   seed: -1
