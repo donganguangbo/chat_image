@@ -18,12 +18,14 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	rand.Seed(time.Now().UnixNano())
 
 	configDir := env("WORKFLOW_CONFIG_DIR", "./app/configs/workflows")
+	loraConfigDir := env("LORA_CONFIG_DIR", "./app/configs/loras")
 	serviceConfigFile := env("SERVICE_CONFIG_FILE", "./app/configs/service.yaml")
 	comfyURLs := parseComfyURLs()
 	listenAddr := env("LISTEN_ADDR", ":8090")
 	outputDir := env("OUTPUT_DIR", "./outputs")
 
 	absConfigDir, _ := filepath.Abs(configDir)
+	absLoraConfigDir, _ := filepath.Abs(loraConfigDir)
 	absServiceConfigFile, _ := filepath.Abs(serviceConfigFile)
 	absOutputDir, _ := filepath.Abs(outputDir)
 
@@ -35,10 +37,16 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	for _, cfg := range workflows {
 		log.Printf("- %s -> %s", cfg.ID, cfg.TemplatePath)
 	}
+	videoLoraCatalogs, err := loadVideoLoraCatalogs(absLoraConfigDir, workflows)
+	if err != nil {
+		log.Fatalf("load video lora catalogs failed: %v", err)
+	}
+	log.Printf("loaded video lora catalogs: %d", len(videoLoraCatalogs))
 	serviceCfg, err := loadServiceConfig(absServiceConfigFile, workflows)
 	if err != nil {
 		log.Fatalf("load service config failed: %v", err)
 	}
+	serviceCfg.VideoLoraCatalogs = videoLoraCatalogs
 	// HMAC shared secret is required. Env still wins, but service.yaml may carry
 	// the deploy-time value so scripts don't have to pass it every run.
 	gatewaySecret := strings.TrimSpace(serviceCfg.GatewaySecret)
@@ -144,6 +152,7 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	log.Printf("comfy backends: %s", strings.Join(comfyPool.URLs(), ", "))
 	log.Printf("go workers: %d", workerCount)
 	log.Printf("config dir: %s", absConfigDir)
+	log.Printf("lora config dir: %s", absLoraConfigDir)
 	log.Printf("service config: %s", absServiceConfigFile)
 	if serviceCfg.StorageMode == StorageModeLocal {
 		log.Printf("output dir: %s", absOutputDir)

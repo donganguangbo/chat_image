@@ -222,6 +222,9 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 	if err := yaml.Unmarshal(i2vRaw, &i2v); err != nil {
 		t.Fatal(err)
 	}
+	if i2v.DynamicLora.Catalog != "ltx_2_3" || i2v.DynamicLora.AnchorNode != "329" {
+		t.Fatalf("i2v dynamic_lora = %+v", i2v.DynamicLora)
+	}
 	for _, required := range []string{"motion_prompt", "motion_negative_prompt", "first_frame_prompt", "first_frame_negative_prompt", "source_image"} {
 		if !slices.Contains(i2v.Required, required) {
 			t.Fatalf("i2v required = %v, missing %s", i2v.Required, required)
@@ -248,10 +251,29 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 	if err := yaml.Unmarshal(t2vRaw, &t2v); err != nil {
 		t.Fatal(err)
 	}
+	if t2v.DynamicLora.Catalog != "ltx_2_3" || t2v.DynamicLora.AnchorNode != "285" {
+		t.Fatalf("t2v dynamic_lora = %+v", t2v.DynamicLora)
+	}
 	if !slices.Equal(t2v.Required, []string{"motion_prompt", "motion_negative_prompt"}) {
 		t.Fatalf("t2v required = %v", t2v.Required)
 	}
 	if !hasBinding(t2v, "303", "value", "motion_prompt") || !hasBinding(t2v, "315", "text", "motion_negative_prompt") {
 		t.Fatalf("t2v bindings = %+v", t2v.Bindings)
+	}
+
+	catalogRaw, err := os.ReadFile(filepath.Join("..", "app", "configs", "loras", "ltx_2_3.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var catalog model.VideoLoraCatalog
+	if err := yaml.Unmarshal(catalogRaw, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	if !catalog.Enabled || catalog.Actions["cumshot"] != "cumshot_v2" || catalog.Actions["missionary-cumshot"] != "cumshot_v2" {
+		t.Fatalf("video lora actions = %+v", catalog.Actions)
+	}
+	profile := catalog.Profiles["cumshot_v2"]
+	if len(profile.Loras) != 1 || profile.Loras[0].File != "LTX-2.3 - Cum Shot v2.0_rank64.safetensors" || profile.Loras[0].Strength != 0.8 {
+		t.Fatalf("cumshot_v2 profile = %+v", profile)
 	}
 }

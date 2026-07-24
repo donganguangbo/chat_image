@@ -14,7 +14,7 @@ func applyOptionalLora(prompt map[string]any, params map[string]any, mode string
 
 	// New multi-LoRA path: params.loras array takes precedence over legacy single-slot fields.
 	if rawLoras, ok := params["loras"]; ok && rawLoras != nil {
-		loras, err := parseLoraEntries(rawLoras, mode)
+		loras, err := parseLoraEntries(rawLoras)
 		if err != nil {
 			return err
 		}
@@ -27,18 +27,8 @@ func applyOptionalLora(prompt map[string]any, params map[string]any, mode string
 		if getBool(params["lora_enabled"], false) {
 			log.Printf("applyOptionalLora: both params.loras and params.lora_enabled=true present; loras[] wins, lora_enabled ignored")
 		}
-		if mode == "i2v" {
-			return applyMultiLoraI2V(prompt, params, loras)
-		}
-		// image_edit / t2i: legacy single-slot semantics — use the first entry of loras[].
+		// image_edit / t2i keep legacy single-slot semantics and use the first entry.
 		return applyLegacyLoraFromMultiEntry(prompt, params, mode, loras[0])
-	}
-
-	// No `loras` field. For i2v, never fall back to legacy single-slot behavior — it was
-	// never supported pre-change, and the spec says legacy lora_name/lora_enabled are not
-	// read on the new i2v path.
-	if mode == "i2v" {
-		return nil
 	}
 
 	// Legacy single-slot path — preserved bit-for-bit for image_edit / t2i backward compatibility.

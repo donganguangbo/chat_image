@@ -16,6 +16,7 @@
 ## 环境变量
 
 - `WORKFLOW_CONFIG_DIR` (默认 `./app/configs/workflows`)
+- `LORA_CONFIG_DIR` (默认 `./app/configs/loras`)
 - `SERVICE_CONFIG_FILE` (默认 `./app/configs/service.yaml`)
 - `COMFY_URL` (可选，单地址或作为主地址)
 - `COMFY_URLS` (可选，多地址，逗号分隔；Go 网关会轮询负载均衡)

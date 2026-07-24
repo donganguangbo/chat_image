@@ -45,6 +45,7 @@ type V1VideoRequest struct {
 	Seconds                  int                   `json:"seconds"`
 	Resolution               string                `json:"resolution"`
 	Quality                  string                `json:"quality"`
+	ActionID                 string                `json:"action_id"`
 	SourceImage              V1VideoImageReference `json:"source_image"`
 	PartnerIdentityImage     V1VideoImageReference `json:"partner_identity_image"`
 

@@ -5,6 +5,9 @@ template_format: api
 mode: text_to_video
 output_kind: video
 timeout_sec: 1800
+dynamic_lora:
+  catalog: ltx_2_3
+  anchor_node: "285"
 required: [motion_prompt, motion_negative_prompt]
 defaults:
   seed: -1

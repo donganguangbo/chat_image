@@ -26,7 +26,7 @@ curl -s http://127.0.0.1:8090/healthz
 |---|---|---|
 | `POST` | `/v1/images/generations` | 文生图 |
 | `POST` | `/v1/images/edits` | 图片编辑 |
-| `POST` | `/v1/videos` | 文生视频；带 `input_reference` 时走图生视频 |
+| `POST` | `/v1/videos` | 文生视频；带 `source_image` 时走图生视频 |
 | `GET` | `/v1/videos/{id}` | 查询视频任务 |
 | `GET` | `/v1/videos/{id}/content` | 读取已完成视频内容，返回 `307` 到输出 URL |
 | `DELETE` | `/v1/videos/{id}` | 取消排队中的视频任务 |
@@ -74,8 +74,9 @@ curl -s http://127.0.0.1:8090/v1/images/edits \
 curl -s http://127.0.0.1:8090/v1/videos \
   -H 'Content-Type: application/json' \
   -d '{
-    "model": "local-video",
-    "prompt": "cinematic close-up, natural motion",
+    "motion_prompt": "cinematic close-up, natural motion",
+    "motion_negative_prompt": "camera movement, shot change",
+    "action_id": "cumshot",
     "size": "832x480",
     "seconds": 4
   }'
@@ -85,15 +86,22 @@ curl -s http://127.0.0.1:8090/v1/videos \
 
 ```json
 {
-  "model": "local-video",
-  "prompt": "cinematic close-up, natural motion",
+  "motion_prompt": "cinematic close-up, natural motion",
+  "motion_negative_prompt": "camera movement, shot change",
+  "first_frame_prompt": "preserve identity and prepare the first frame",
+  "first_frame_negative_prompt": "bad anatomy, fused bodies",
+  "action_id": "cumshot",
   "size": "832x480",
   "seconds": 4,
-  "input_reference": {
+  "source_image": {
     "image_url": "https://example.com/first_frame.png"
   }
 }
 ```
+
+`action_id` 是可选的 kebab-case 动作 ID。只有配置在
+`app/configs/loras/*.yaml` 中的动作会加载动态 LoRA；字段缺失、空字符串或
+未映射时都继续使用工作流原有的固定 LoRA，不返回错误。
 
 响应是异步任务对象：
 

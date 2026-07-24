@@ -1,0 +1,12 @@
+id: ltx_2_3
+enabled: true
+
+profiles:
+  cumshot_v2:
+    loras:
+      - file: "LTX-2.3 - Cum Shot v2.0_rank64.safetensors"
+        strength: 0.8
+
+actions:
+  cumshot: cumshot_v2
+  missionary-cumshot: cumshot_v2

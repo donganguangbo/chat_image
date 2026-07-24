@@ -130,6 +130,14 @@ func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		"motion_prompt":          motionPrompt,
 		"motion_negative_prompt": motionNegativePrompt,
 	}
+	actionID, err := normalizeVideoActionID(req.ActionID)
+	if err != nil {
+		writeAPIError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if actionID != "" {
+		params["action_id"] = actionID
+	}
 	if req.Seconds > 0 {
 		params["duration_sec"] = req.Seconds
 	}

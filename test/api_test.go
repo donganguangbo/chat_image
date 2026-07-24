@@ -152,6 +152,11 @@ func TestV1VideoRoutes(t *testing.T) {
 	if created.ID == "" || created.Object != "video" || created.Status != "queued" {
 		t.Fatalf("created = %+v", created)
 	}
+	if task := s.GetTask(created.ID); task == nil {
+		t.Fatalf("task %q not found", created.ID)
+	} else if _, exists := task.Params["action_id"]; exists {
+		t.Fatalf("action_id must be absent for legacy clients: %+v", task.Params)
+	}
 
 	rec = performV1Request(t, s, http.MethodGet, "/v1/videos/"+created.ID, "", "")
 	if rec.Code != http.StatusOK {
@@ -168,6 +173,54 @@ func TestV1VideoRoutes(t *testing.T) {
 	}
 	if got := rec.Header().Get("Location"); got != "/outputs/videos/out.mp4" {
 		t.Fatalf("Location = %q, want /outputs/videos/out.mp4", got)
+	}
+}
+
+func TestV1VideoActionIDIsOptional(t *testing.T) {
+	s := newTestV1Server()
+	for _, test := range []struct {
+		name       string
+		actionJSON string
+		wantAction string
+	}{
+		{name: "provided", actionJSON: `"action_id":"cumshot",`, wantAction: "cumshot"},
+		{name: "empty", actionJSON: `"action_id":"   ",`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			body := `{` + test.actionJSON + `"motion_prompt":"move continuously","motion_negative_prompt":"camera movement","size":"1280x720"}`
+			rec := performV1Request(t, s, http.MethodPost, "/v1/videos", body, "application/json")
+			if rec.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d; body=%s", rec.Code, http.StatusOK, rec.Body.String())
+			}
+			var created struct {
+				ID string `json:"id"`
+			}
+			if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil {
+				t.Fatal(err)
+			}
+			task := s.GetTask(created.ID)
+			if task == nil {
+				t.Fatalf("task %q not found", created.ID)
+			}
+			got, exists := task.Params["action_id"]
+			if test.wantAction == "" {
+				if exists {
+					t.Fatalf("empty action_id must be omitted, got %v", got)
+				}
+			} else if got != test.wantAction {
+				t.Fatalf("action_id = %v, want %q", got, test.wantAction)
+			}
+		})
+	}
+
+	rec := performV1Request(t, s, http.MethodPost, "/v1/videos", `{
+		"action_id":"Cum Shot",
+		"motion_prompt":"move continuously",
+		"motion_negative_prompt":"camera movement",
+		"size":"1280x720"
+	}`, "application/json")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "action_id") {
+		t.Fatalf("invalid action status = %d, want %d; body=%s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
 }
 

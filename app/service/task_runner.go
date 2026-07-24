@@ -288,9 +288,14 @@ func (s *Server) prepareAndSubmit(taskID string, cfg WorkflowConfig, tpl map[str
 			return nil, "", true, fmt.Errorf("configure partner identity failed: %w", err)
 		}
 	}
-	if cfg.Mode == "image_edit" || cfg.Mode == "t2i" || cfg.Mode == "i2v" {
+	if cfg.Mode == "image_edit" || cfg.Mode == "t2i" {
 		if err := applyOptionalLora(rendered, params, cfg.Mode); err != nil {
 			return nil, "", true, fmt.Errorf("apply optional lora failed: %w", err)
+		}
+	}
+	if cfg.Mode == "text_to_video" || cfg.Mode == "i2v" {
+		if err := s.applyVideoActionLora(taskID, rendered, params, cfg); err != nil {
+			return nil, "", true, fmt.Errorf("apply video action lora failed: %w", err)
 		}
 	}
 	if cfg.Mode == "image_edit" {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -14,6 +15,8 @@ const (
 	legacyVideoMotionNegative     = "camera movement, shot change, slow motion, frozen motion, extra person, temporal discontinuity"
 	legacyVideoFirstFrameNegative = "bad anatomy, fused bodies, extra limbs, duplicate person, malformed hands"
 )
+
+var videoActionIDPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 
 func parseImageEditRequest(r *http.Request) (V1ImageRequest, error) {
 	ct := r.Header.Get("Content-Type")
@@ -168,9 +171,21 @@ func normalizeVideoRequest(req V1VideoRequest) (V1VideoRequest, error) {
 		Seconds:                  seconds,
 		Resolution:               videoParamString(req.Params, "resolution"),
 		Quality:                  videoParamString(req.Params, "quality"),
+		ActionID:                 req.ActionID,
 		SourceImage:              req.InputReference,
 		PartnerIdentityImage:     legacyVideoImageReference(req.Params, "input_image_end"),
 	}, nil
+}
+
+func normalizeVideoActionID(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+	if !videoActionIDPattern.MatchString(value) {
+		return "", fmt.Errorf("action_id must be a kebab-case identifier")
+	}
+	return value, nil
 }
 
 func copyVideoImageReference(params map[string]any, key string, ref V1VideoImageReference) (bool, error) {
