@@ -68,6 +68,7 @@ func validateVideoLoraCatalog(catalog *VideoLoraCatalog) error {
 		if !videoLoraCatalogIDPattern.MatchString(profileID) {
 			return fmt.Errorf("invalid profile id %q", profileID)
 		}
+		profile.PromptPrefix = strings.TrimSpace(profile.PromptPrefix)
 		if len(profile.Loras) == 0 {
 			return fmt.Errorf("profile %s has no loras", profileID)
 		}

@@ -17,19 +17,20 @@ func TestVideoLoraInjectionUsesActionID(t *testing.T) {
 		prompt := captureVideoPrompt(t, "text_to_video", "285", "cumshot", []service.VideoLoraSpec{
 			{File: "action.safetensors", Strength: 0.8},
 			{File: "expression.safetensors", Strength: 0.6},
-		})
+		}, "CUMSH0T")
 		assertModelLink(t, prompt, "317", "285")
 		assertModelLink(t, prompt, "318", "317")
 		assertModelLink(t, prompt, "282", "318")
 		assertModelLink(t, prompt, "316", "318")
 		assertLora(t, prompt, "317", "action.safetensors", 0.8)
 		assertLora(t, prompt, "318", "expression.safetensors", 0.6)
+		assertStringInput(t, prompt, "303", "value", "CUMSH0T. original motion")
 	})
 
 	t.Run("image to video injects before fixed lora", func(t *testing.T) {
 		prompt := captureVideoPrompt(t, "i2v", "285", "cumshot", []service.VideoLoraSpec{
 			{File: "action.safetensors", Strength: 0.8},
-		})
+		}, "CUMSH0T")
 		assertModelLink(t, prompt, "330", "285")
 		assertModelLink(t, prompt, "329", "330")
 		assertModelLink(t, prompt, "282", "329")
@@ -40,17 +41,18 @@ func TestVideoLoraInjectionUsesActionID(t *testing.T) {
 		t.Run("no dynamic lora for "+actionID, func(t *testing.T) {
 			prompt := captureVideoPrompt(t, "text_to_video", "285", actionID, []service.VideoLoraSpec{
 				{File: "action.safetensors", Strength: 0.8},
-			})
+			}, "CUMSH0T")
 			if _, exists := prompt["317"]; exists {
 				t.Fatalf("unexpected dynamic lora node for action %q", actionID)
 			}
 			assertModelLink(t, prompt, "282", "285")
 			assertModelLink(t, prompt, "316", "285")
+			assertStringInput(t, prompt, "303", "value", "original motion")
 		})
 	}
 }
 
-func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras []service.VideoLoraSpec) map[string]any {
+func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras []service.VideoLoraSpec, promptPrefix string) map[string]any {
 	t.Helper()
 	queued := make(chan map[string]any, 1)
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -91,6 +93,7 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 			"inputs":     map[string]any{"model": []any{"281", 0}, "lora_name": "distilled.safetensors", "strength_model": 0.5},
 		},
 		"282": map[string]any{"class_type": "CFGGuider", "inputs": map[string]any{"model": []any{guiderSource, 0}}},
+		"303": map[string]any{"class_type": "PrimitiveStringMultiline", "inputs": map[string]any{"value": "template motion"}},
 		"316": map[string]any{"class_type": "CFGGuider", "inputs": map[string]any{"model": []any{guiderSource, 0}}},
 	}
 	if mode == "i2v" {
@@ -126,6 +129,9 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 				Mode:           mode,
 				OutputKind:     "video",
 				TimeoutSec:     5,
+				Bindings: []service.InputBinding{
+					{Node: "303", Input: "value", Param: "motion_prompt"},
+				},
 				DynamicLora: service.VideoLoraWorkflowConfig{
 					Catalog:    "ltx_2_3",
 					AnchorNode: anchorNode,
@@ -139,7 +145,7 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 					ID:      "ltx_2_3",
 					Enabled: true,
 					Profiles: map[string]service.VideoLoraProfile{
-						"test": {Loras: loras},
+						"test": {PromptPrefix: promptPrefix, Loras: loras},
 					},
 					Actions: map[string]string{"cumshot": "test"},
 				},
@@ -149,7 +155,7 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 		t.TempDir(),
 		nil,
 	)
-	params := map[string]any{}
+	params := map[string]any{"motion_prompt": "original motion"}
 	if actionID != "" {
 		params["action_id"] = actionID
 	}
@@ -197,5 +203,14 @@ func assertLora(t *testing.T, prompt map[string]any, nodeID, file string, streng
 	inputs := node["inputs"].(map[string]any)
 	if inputs["lora_name"] != file || inputs["strength_model"] != strength {
 		t.Fatalf("node %s lora inputs = %+v", nodeID, inputs)
+	}
+}
+
+func assertStringInput(t *testing.T, prompt map[string]any, nodeID, input, want string) {
+	t.Helper()
+	node := prompt[nodeID].(map[string]any)
+	inputs := node["inputs"].(map[string]any)
+	if got := inputs[input]; got != want {
+		t.Fatalf("node %s input %s = %q, want %q", nodeID, input, got, want)
 	}
 }

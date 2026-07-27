@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -30,6 +31,9 @@ func (s *Server) applyVideoActionLora(taskID string, prompt map[string]any, para
 	if !ok {
 		return fmt.Errorf("video lora profile not loaded: %s/%s", catalogID, profileID)
 	}
+	if err := applyVideoLoraPromptPrefix(prompt, workflow.Bindings, asString(params["motion_prompt"]), profile.PromptPrefix); err != nil {
+		return err
+	}
 	if err := injectVideoLoraChain(prompt, strings.TrimSpace(dynamic.AnchorNode), profile.Loras); err != nil {
 		return err
 	}
@@ -47,6 +51,23 @@ func (s *Server) applyVideoActionLora(taskID string, prompt map[string]any, para
 		dynamic.AnchorNode,
 	)
 	return nil
+}
+
+func applyVideoLoraPromptPrefix(prompt map[string]any, bindings []InputBinding, motionPrompt, prefix string) error {
+	prefix = strings.TrimSpace(prefix)
+	if prefix == "" {
+		return nil
+	}
+	motionPrompt = strings.TrimSpace(motionPrompt)
+	if !strings.Contains(strings.ToLower(motionPrompt), strings.ToLower(prefix)) {
+		motionPrompt = strings.TrimSpace(prefix + ". " + motionPrompt)
+	}
+	for _, binding := range bindings {
+		if strings.TrimSpace(binding.Param) == "motion_prompt" {
+			return applyBindings(prompt, []InputBinding{binding}, map[string]any{"motion_prompt": motionPrompt})
+		}
+	}
+	return errors.New("video lora prompt prefix requires a motion_prompt binding")
 }
 
 func injectVideoLoraChain(prompt map[string]any, anchorNodeID string, loras []VideoLoraSpec) error {

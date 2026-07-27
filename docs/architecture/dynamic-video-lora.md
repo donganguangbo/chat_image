@@ -122,19 +122,21 @@ id: ltx_2_3
 enabled: true
 
 profiles:
-  cumshot_v2:
+  epic_cumshots_v1:
+    prompt_prefix: "CUMSH0T"
     loras:
-      - file: "LTX-2.3 - Cum Shot v2.0_rank64.safetensors"
-        strength: 1.5
+      - file: "epic-cumshots-ltx-2.3.safetensors"
+        strength: 1.0
 
 actions:
-  cumshot: cumshot_v2
-  missionary-cumshot: cumshot_v2
+  cumshot: epic_cumshots_v1
+  missionary-cumshot: epic_cumshots_v1
 ```
 
 设计说明：
 
 - `profile` 是有序 LoRA 列表，可以加载一个或多个 LoRA。
+- `prompt_prefix` 仅在 profile 命中时添加到 `motion_prompt`，用于模型触发词。
 - 同一个文件可以在不同 profile 中使用不同强度。
 - 动作映射只引用 profile，不重复维护文件和权重。
 - 配置中的文件名相对于 ComfyUI 的 `models/loras` 目录。
@@ -152,8 +154,8 @@ Resolver 使用固定规则：
 例如：
 
 ```text
-cumshot              -> cumshot_v2
-missionary-cumshot   -> cumshot_v2
+cumshot              -> epic_cumshots_v1
+missionary-cumshot   -> epic_cumshots_v1
 未知或未配置 action_id -> 无动态 LoRA
 ```
 
@@ -199,11 +201,12 @@ dynamic_lora:
 Injector 按以下顺序修改每个任务的工作流副本：
 
 1. 读取工作流配置中的 `anchor_node`。
-2. 保存注入前所有节点 ID，避免后续重连到刚创建的 LoRA 节点。
-3. 按 profile 顺序创建 `LoraLoaderModelOnly` 节点。
-4. 第一个动态节点连接锚点输出，后续节点连接前一个动态节点。
-5. 将所有原来消费锚点 model 输出的节点重连到最后一个动态节点。
-6. 原始工作流 JSON 和固定 LoRA 节点不做持久化修改。
+2. 将命中 profile 的 `prompt_prefix` 添加到 `motion_prompt`（已包含时不重复添加）。
+3. 保存注入前所有节点 ID，避免后续重连到刚创建的 LoRA 节点。
+4. 按 profile 顺序创建 `LoraLoaderModelOnly` 节点。
+5. 第一个动态节点连接锚点输出，后续节点连接前一个动态节点。
+6. 将所有原来消费锚点 model 输出的节点重连到最后一个动态节点。
+7. 原始工作流 JSON 和固定 LoRA 节点不做持久化修改。
 
 当前 `relinkNodeInputSourceForNodeIDsExcludingClass` 和最大节点 ID 计算逻辑
 可以继续复用。视频路径不再依赖请求中的 `lora_stage_node_ids`、`attach`
@@ -265,10 +268,10 @@ profile=<id> loras=<file@strength> anchor=<node>
 
 Gateway 测试：
 
-1. action 映射到正确 profile。
-2. action 缺失或未映射时不注入 LoRA。
+1. action 映射到正确 profile，并注入对应 `prompt_prefix`。
+2. action 缺失或未映射时不注入 LoRA 或提示词前缀。
 3. 文生视频从节点 `285` 注入并重连 `282`、`316`。
-4. 图生视频从节点 `329` 注入并保留节点 `285`、`329`。
+4. 图生视频从节点 `285` 注入，并保留其后的固定节点 `329`。
 5. 多 LoRA 按配置顺序串联。
 6. 非法配置和不存在的锚点导致启动失败。
 7. 公共 API 不接受客户端 LoRA 文件名和节点 ID。
