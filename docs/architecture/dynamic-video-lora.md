@@ -126,7 +126,7 @@ profiles:
     prompt_prefix: "CUMSH0T"
     loras:
       - file: "epic-cumshots-ltx-2.3.safetensors"
-        strength: 1.0
+        strength: 0.7
 
 actions:
   cumshot: epic_cumshots_v1

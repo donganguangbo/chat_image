@@ -273,7 +273,7 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 		t.Fatalf("video lora actions = %+v", catalog.Actions)
 	}
 	profile := catalog.Profiles["epic_cumshots_v1"]
-	if profile.PromptPrefix != "CUMSH0T" || len(profile.Loras) != 1 || profile.Loras[0].File != "epic-cumshots-ltx-2.3.safetensors" || profile.Loras[0].Strength != 1 {
+	if profile.PromptPrefix != "CUMSH0T" || len(profile.Loras) != 1 || profile.Loras[0].File != "epic-cumshots-ltx-2.3.safetensors" || profile.Loras[0].Strength != 0.7 {
 		t.Fatalf("epic_cumshots_v1 profile = %+v", profile)
 	}
 }
