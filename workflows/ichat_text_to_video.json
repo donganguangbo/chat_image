@@ -167,7 +167,7 @@
   "285": {
     "inputs": {
       "lora_name": "ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
-      "strength_model": 0,
+      "strength_model": 0.5,
       "model": [
         "281",
         0
