@@ -3,7 +3,6 @@ enabled: true
 
 profiles:
   f4c3spl4sh_v1:
-    prompt_prefix: "f4c3spl4sh"
     loras:
       - file: "ltx23-f4c3spl4sh-step8500-k3nk.safetensors"
         strength: 1.0

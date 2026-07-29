@@ -123,7 +123,6 @@ enabled: true
 
 profiles:
   f4c3spl4sh_v1:
-    prompt_prefix: "f4c3spl4sh"
     loras:
       - file: "ltx23-f4c3spl4sh-step8500-k3nk.safetensors"
         strength: 1.0
@@ -136,10 +135,10 @@ actions:
 设计说明：
 
 - `profile` 是有序 LoRA 列表，可以加载一个或多个 LoRA。
-- `prompt_prefix` 仅在 profile 命中时添加到 `motion_prompt`，用于模型触发词。
 - 同一个文件可以在不同 profile 中使用不同强度。
 - 动作映射只引用 profile，不重复维护文件和权重。
 - 配置中的文件名相对于 ComfyUI 的 `models/loras` 目录。
+- Gateway 不添加 LoRA 触发词；客户端必须把所需触发词写入 `motion_prompt`。
 - 第一版不做热加载；修改配置后重启 Gateway 生效。
 
 ## 6. 匹配规则
@@ -209,13 +208,12 @@ dynamic_lora:
 Injector 按以下顺序修改每个任务的工作流副本：
 
 1. 读取工作流配置中的 `anchor_node`。
-2. 将命中 profile 的 `prompt_prefix` 添加到 `motion_prompt`（已包含时不重复添加）。
-3. 保存注入前所有节点 ID，避免后续重连到刚创建的 LoRA 节点。
-4. 按 profile 顺序创建 `LoraLoaderModelOnly` 节点。
-5. 第一个动态节点连接锚点输出，后续节点连接前一个动态节点。
-6. 将所有原来消费锚点 model 输出的节点重连到最后一个动态节点。
-7. 命中 `bypass_fixed_loras` 时，仅在当前任务副本中绕过并删除匹配的固定 LoRA 节点。
-8. 原始工作流 JSON 不做持久化修改。
+2. 保存注入前所有节点 ID，避免后续重连到刚创建的 LoRA 节点。
+3. 按 profile 顺序创建 `LoraLoaderModelOnly` 节点。
+4. 第一个动态节点连接锚点输出，后续节点连接前一个动态节点。
+5. 将所有原来消费锚点 model 输出的节点重连到最后一个动态节点。
+6. 命中 `bypass_fixed_loras` 时，仅在当前任务副本中绕过并删除匹配的固定 LoRA 节点。
+7. 原始工作流 JSON 和客户端传入的提示词不做持久化修改。
 
 当前 `relinkNodeInputSourceForNodeIDsExcludingClass` 和最大节点 ID 计算逻辑
 可以继续复用。视频路径不再依赖请求中的 `lora_stage_node_ids`、`attach`
@@ -277,8 +275,8 @@ profile=<id> loras=<file@strength> anchor=<node>
 
 Gateway 测试：
 
-1. action 映射到正确 profile，并注入对应 `prompt_prefix`。
-2. action 缺失或未映射时不注入 LoRA 或提示词前缀。
+1. action 映射到正确 profile，且不修改客户端传入的 `motion_prompt`。
+2. action 缺失或未映射时不注入 LoRA。
 3. 文生视频从节点 `285` 注入并重连 `282`、`316`。
 4. 图生视频默认保留固定节点 `329`；`missionary-cumshot` 绕过该节点。
 5. 多 LoRA 按配置顺序串联。

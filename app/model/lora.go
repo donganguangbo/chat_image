@@ -14,8 +14,7 @@ type VideoLoraCatalog struct {
 }
 
 type VideoLoraProfile struct {
-	PromptPrefix string          `yaml:"prompt_prefix"`
-	Loras        []VideoLoraSpec `yaml:"loras"`
+	Loras []VideoLoraSpec `yaml:"loras"`
 }
 
 type VideoLoraSpec struct {
