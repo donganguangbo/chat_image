@@ -122,15 +122,15 @@ id: ltx_2_3
 enabled: true
 
 profiles:
-  epic_cumshots_v1:
-    prompt_prefix: "CUMSH0T"
+  f4c3spl4sh_v1:
+    prompt_prefix: "f4c3spl4sh"
     loras:
-      - file: "epic-cumshots-ltx-2.3.safetensors"
-        strength: 0.7
+      - file: "ltx23-f4c3spl4sh-step8500-k3nk.safetensors"
+        strength: 1.0
 
 actions:
-  cumshot: epic_cumshots_v1
-  missionary-cumshot: epic_cumshots_v1
+  cumshot: f4c3spl4sh_v1
+  missionary-cumshot: f4c3spl4sh_v1
 ```
 
 设计说明：
@@ -154,8 +154,8 @@ Resolver 使用固定规则：
 例如：
 
 ```text
-cumshot              -> epic_cumshots_v1
-missionary-cumshot   -> epic_cumshots_v1
+cumshot              -> f4c3spl4sh_v1
+missionary-cumshot   -> f4c3spl4sh_v1
 未知或未配置 action_id -> 无动态 LoRA
 ```
 

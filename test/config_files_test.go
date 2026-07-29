@@ -269,11 +269,11 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 	if err := yaml.Unmarshal(catalogRaw, &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if !catalog.Enabled || catalog.Actions["cumshot"] != "epic_cumshots_v1" || catalog.Actions["missionary-cumshot"] != "epic_cumshots_v1" {
+	if !catalog.Enabled || catalog.Actions["cumshot"] != "f4c3spl4sh_v1" || catalog.Actions["missionary-cumshot"] != "f4c3spl4sh_v1" {
 		t.Fatalf("video lora actions = %+v", catalog.Actions)
 	}
-	profile := catalog.Profiles["epic_cumshots_v1"]
-	if profile.PromptPrefix != "CUMSH0T" || len(profile.Loras) != 1 || profile.Loras[0].File != "epic-cumshots-ltx-2.3.safetensors" || profile.Loras[0].Strength != 0.7 {
-		t.Fatalf("epic_cumshots_v1 profile = %+v", profile)
+	profile := catalog.Profiles["f4c3spl4sh_v1"]
+	if profile.PromptPrefix != "f4c3spl4sh" || len(profile.Loras) != 1 || profile.Loras[0].File != "ltx23-f4c3spl4sh-step8500-k3nk.safetensors" || profile.Loras[0].Strength != 1 {
+		t.Fatalf("f4c3spl4sh_v1 profile = %+v", profile)
 	}
 }
