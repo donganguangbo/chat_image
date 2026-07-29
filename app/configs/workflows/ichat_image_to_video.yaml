@@ -8,9 +8,6 @@ timeout_sec: 1800
 dynamic_lora:
   catalog: ltx_2_3
   anchor_node: "285"
-  bypass_fixed_loras:
-    missionary-cumshot:
-      - "ltx2.3_nsfw_furry.safetensors"
 required: [motion_prompt, motion_negative_prompt, first_frame_prompt, first_frame_negative_prompt, source_image]
 defaults:
   seed: -1

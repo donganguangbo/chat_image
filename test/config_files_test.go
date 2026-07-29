@@ -225,9 +225,6 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 	if i2v.DynamicLora.Catalog != "ltx_2_3" || i2v.DynamicLora.AnchorNode != "285" {
 		t.Fatalf("i2v dynamic_lora = %+v", i2v.DynamicLora)
 	}
-	if !slices.Equal(i2v.DynamicLora.BypassFixedLoras["missionary-cumshot"], []string{"ltx2.3_nsfw_furry.safetensors"}) {
-		t.Fatalf("i2v missionary-cumshot bypass = %+v", i2v.DynamicLora.BypassFixedLoras)
-	}
 	for _, required := range []string{"motion_prompt", "motion_negative_prompt", "first_frame_prompt", "first_frame_negative_prompt", "source_image"} {
 		if !slices.Contains(i2v.Required, required) {
 			t.Fatalf("i2v required = %v, missing %s", i2v.Required, required)
