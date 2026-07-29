@@ -1,8 +1,9 @@
 package model
 
 type VideoLoraWorkflowConfig struct {
-	Catalog    string `yaml:"catalog"`
-	AnchorNode string `yaml:"anchor_node"`
+	Catalog          string              `yaml:"catalog"`
+	AnchorNode       string              `yaml:"anchor_node"`
+	BypassFixedLoras map[string][]string `yaml:"bypass_fixed_loras"`
 }
 
 type VideoLoraCatalog struct {

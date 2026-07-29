@@ -137,6 +137,41 @@ func validateWorkflowVideoLoraConfigs(workflows map[string]WorkflowConfig, catal
 		if _, ok := prompt[dynamic.AnchorNode].(map[string]any); !ok {
 			return fmt.Errorf("workflow %s dynamic_lora anchor node %s not found", workflow.ID, dynamic.AnchorNode)
 		}
+		catalog := catalogs[dynamic.Catalog]
+		for actionID, files := range dynamic.BypassFixedLoras {
+			if !videoLoraActionIDPattern.MatchString(actionID) {
+				return fmt.Errorf("workflow %s dynamic_lora has invalid bypass action %q", workflow.ID, actionID)
+			}
+			if _, ok := catalog.Actions[actionID]; !ok {
+				return fmt.Errorf("workflow %s dynamic_lora bypass action %s is not mapped in catalog %s", workflow.ID, actionID, dynamic.Catalog)
+			}
+			if len(files) == 0 {
+				return fmt.Errorf("workflow %s dynamic_lora bypass action %s has no loras", workflow.ID, actionID)
+			}
+			for _, file := range files {
+				file = strings.TrimSpace(file)
+				if !safeVideoLoraFile(file) {
+					return fmt.Errorf("workflow %s dynamic_lora bypass action %s has unsafe file %q", workflow.ID, actionID, file)
+				}
+				if !hasFixedVideoLora(prompt, file) {
+					return fmt.Errorf("workflow %s dynamic_lora bypass action %s references missing fixed lora %s", workflow.ID, actionID, file)
+				}
+			}
+		}
 	}
 	return nil
+}
+
+func hasFixedVideoLora(prompt map[string]any, file string) bool {
+	for _, rawNode := range prompt {
+		node, ok := rawNode.(map[string]any)
+		if !ok || asString(node["class_type"]) != "LoraLoaderModelOnly" {
+			continue
+		}
+		inputs, ok := node["inputs"].(map[string]any)
+		if ok && strings.TrimSpace(asString(inputs["lora_name"])) == file {
+			return true
+		}
+	}
+	return false
 }

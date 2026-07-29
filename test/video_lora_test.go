@@ -17,7 +17,7 @@ func TestVideoLoraInjectionUsesActionID(t *testing.T) {
 		prompt := captureVideoPrompt(t, "text_to_video", "285", "cumshot", []service.VideoLoraSpec{
 			{File: "action.safetensors", Strength: 0.8},
 			{File: "expression.safetensors", Strength: 0.6},
-		}, "CUMSH0T")
+		}, "CUMSH0T", nil)
 		assertModelLink(t, prompt, "317", "285")
 		assertModelLink(t, prompt, "318", "317")
 		assertModelLink(t, prompt, "282", "318")
@@ -30,18 +30,32 @@ func TestVideoLoraInjectionUsesActionID(t *testing.T) {
 	t.Run("image to video injects before fixed lora", func(t *testing.T) {
 		prompt := captureVideoPrompt(t, "i2v", "285", "cumshot", []service.VideoLoraSpec{
 			{File: "action.safetensors", Strength: 0.8},
-		}, "CUMSH0T")
+		}, "CUMSH0T", nil)
 		assertModelLink(t, prompt, "330", "285")
 		assertModelLink(t, prompt, "329", "330")
 		assertModelLink(t, prompt, "282", "329")
 		assertModelLink(t, prompt, "316", "329")
 	})
 
+	t.Run("image to video can bypass fixed motion lora", func(t *testing.T) {
+		prompt := captureVideoPrompt(t, "i2v", "285", "missionary-cumshot", []service.VideoLoraSpec{
+			{File: "action.safetensors", Strength: 1},
+		}, "CUMSH0T", map[string][]string{
+			"missionary-cumshot": {"fixed.safetensors"},
+		})
+		if _, exists := prompt["329"]; exists {
+			t.Fatal("fixed motion lora node 329 must be bypassed")
+		}
+		assertModelLink(t, prompt, "330", "285")
+		assertModelLink(t, prompt, "282", "330")
+		assertModelLink(t, prompt, "316", "330")
+	})
+
 	for _, actionID := range []string{"", "unmapped-action"} {
 		t.Run("no dynamic lora for "+actionID, func(t *testing.T) {
 			prompt := captureVideoPrompt(t, "text_to_video", "285", actionID, []service.VideoLoraSpec{
 				{File: "action.safetensors", Strength: 0.8},
-			}, "CUMSH0T")
+			}, "CUMSH0T", nil)
 			if _, exists := prompt["317"]; exists {
 				t.Fatalf("unexpected dynamic lora node for action %q", actionID)
 			}
@@ -52,7 +66,7 @@ func TestVideoLoraInjectionUsesActionID(t *testing.T) {
 	}
 }
 
-func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras []service.VideoLoraSpec, promptPrefix string) map[string]any {
+func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras []service.VideoLoraSpec, promptPrefix string, bypassFixedLoras map[string][]string) map[string]any {
 	t.Helper()
 	queued := make(chan map[string]any, 1)
 	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -133,8 +147,9 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 					{Node: "303", Input: "value", Param: "motion_prompt"},
 				},
 				DynamicLora: service.VideoLoraWorkflowConfig{
-					Catalog:    "ltx_2_3",
-					AnchorNode: anchorNode,
+					Catalog:          "ltx_2_3",
+					AnchorNode:       anchorNode,
+					BypassFixedLoras: bypassFixedLoras,
 				},
 			},
 		},
@@ -147,7 +162,7 @@ func captureVideoPrompt(t *testing.T, mode, anchorNode, actionID string, loras [
 					Profiles: map[string]service.VideoLoraProfile{
 						"test": {PromptPrefix: promptPrefix, Loras: loras},
 					},
-					Actions: map[string]string{"cumshot": "test"},
+					Actions: map[string]string{"cumshot": "test", "missionary-cumshot": "test"},
 				},
 			},
 		},

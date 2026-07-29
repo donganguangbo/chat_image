@@ -183,6 +183,9 @@ dynamic_lora:
 dynamic_lora:
   catalog: ltx_2_3
   anchor_node: "285"
+  bypass_fixed_loras:
+    missionary-cumshot:
+      - "ltx2.3_nsfw_furry.safetensors"
 ```
 
 注入后的模型链：
@@ -192,9 +195,14 @@ dynamic_lora:
 图生视频：281 -> 285 -> 动态 LoRA 1 -> 动态 LoRA 2 -> 329 -> 282/316
 ```
 
+`missionary-cumshot` 当前用于单 LoRA A/B 测试：注入动态 F4C 前先绕过固定
+节点 `329`，最终链路为 `281 -> 285 -> F4C -> 282/316`。其他动作和未传
+`action_id` 的请求仍保留节点 `329`。
+
 `ltx-2.3-22b-distilled-lora-384-1.1.safetensors` 是通用固定 LoRA，
-不进入动作配置。第一版也保留图生视频当前固定的
-`ltx2.3_nsfw_furry.safetensors`，避免动态功能上线时改变现有生成效果。
+不进入动作配置。图生视频默认保留固定的
+`ltx2.3_nsfw_furry.safetensors`；只有明确配置 `bypass_fixed_loras` 的动作
+会在单次任务副本中绕过它。
 
 ## 8. 注入算法
 
@@ -206,7 +214,8 @@ Injector 按以下顺序修改每个任务的工作流副本：
 4. 按 profile 顺序创建 `LoraLoaderModelOnly` 节点。
 5. 第一个动态节点连接锚点输出，后续节点连接前一个动态节点。
 6. 将所有原来消费锚点 model 输出的节点重连到最后一个动态节点。
-7. 原始工作流 JSON 和固定 LoRA 节点不做持久化修改。
+7. 命中 `bypass_fixed_loras` 时，仅在当前任务副本中绕过并删除匹配的固定 LoRA 节点。
+8. 原始工作流 JSON 不做持久化修改。
 
 当前 `relinkNodeInputSourceForNodeIDsExcludingClass` 和最大节点 ID 计算逻辑
 可以继续复用。视频路径不再依赖请求中的 `lora_stage_node_ids`、`attach`
@@ -271,7 +280,7 @@ Gateway 测试：
 1. action 映射到正确 profile，并注入对应 `prompt_prefix`。
 2. action 缺失或未映射时不注入 LoRA 或提示词前缀。
 3. 文生视频从节点 `285` 注入并重连 `282`、`316`。
-4. 图生视频从节点 `285` 注入，并保留其后的固定节点 `329`。
+4. 图生视频默认保留固定节点 `329`；`missionary-cumshot` 绕过该节点。
 5. 多 LoRA 按配置顺序串联。
 6. 非法配置和不存在的锚点导致启动失败。
 7. 公共 API 不接受客户端 LoRA 文件名和节点 ID。
