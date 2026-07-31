@@ -126,10 +126,16 @@ profiles:
     loras:
       - file: "ltx23-f4c3spl4sh-step8500-k3nk.safetensors"
         strength: 1.0
+  paizuri_i2v_sulphur_v2:
+    loras:
+      - file: "ltx23_paizuri_titfuck_i2v_sulphur_v2.safetensors"
+        strength: 0.8
 
 actions:
   cumshot: f4c3spl4sh_v1
   missionary-cumshot: f4c3spl4sh_v1
+  titjob: paizuri_i2v_sulphur_v2
+  titjob-handjob-hybrid: paizuri_i2v_sulphur_v2
 ```
 
 设计说明：
@@ -155,6 +161,8 @@ Resolver 使用固定规则：
 ```text
 cumshot              -> f4c3spl4sh_v1
 missionary-cumshot   -> f4c3spl4sh_v1
+titjob               -> paizuri_i2v_sulphur_v2
+titjob-handjob-hybrid -> paizuri_i2v_sulphur_v2
 未知或未配置 action_id -> 无动态 LoRA
 ```
 

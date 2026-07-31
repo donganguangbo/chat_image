@@ -269,11 +269,16 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 	if err := yaml.Unmarshal(catalogRaw, &catalog); err != nil {
 		t.Fatal(err)
 	}
-	if !catalog.Enabled || catalog.Actions["cumshot"] != "f4c3spl4sh_v1" || catalog.Actions["missionary-cumshot"] != "f4c3spl4sh_v1" {
+	if !catalog.Enabled || catalog.Actions["cumshot"] != "f4c3spl4sh_v1" || catalog.Actions["missionary-cumshot"] != "f4c3spl4sh_v1" ||
+		catalog.Actions["titjob"] != "paizuri_i2v_sulphur_v2" || catalog.Actions["titjob-handjob-hybrid"] != "paizuri_i2v_sulphur_v2" {
 		t.Fatalf("video lora actions = %+v", catalog.Actions)
 	}
 	profile := catalog.Profiles["f4c3spl4sh_v1"]
 	if len(profile.Loras) != 1 || profile.Loras[0].File != "ltx23-f4c3spl4sh-step8500-k3nk.safetensors" || profile.Loras[0].Strength != 1 {
 		t.Fatalf("f4c3spl4sh_v1 profile = %+v", profile)
+	}
+	profile = catalog.Profiles["paizuri_i2v_sulphur_v2"]
+	if len(profile.Loras) != 1 || profile.Loras[0].File != "ltx23_paizuri_titfuck_i2v_sulphur_v2.safetensors" || profile.Loras[0].Strength != 0.8 {
+		t.Fatalf("paizuri_i2v_sulphur_v2 profile = %+v", profile)
 	}
 }
