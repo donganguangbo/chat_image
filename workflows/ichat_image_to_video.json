@@ -823,8 +823,8 @@
   },
   "329": {
     "inputs": {
-      "lora_name": "ltx2.3_nsfw_furry.safetensors",
-      "strength_model": 1,
+      "lora_name": "sulphur_ltx23_better_nsfw_motion.safetensors",
+      "strength_model": 0.7,
       "model": [
         "285",
         0

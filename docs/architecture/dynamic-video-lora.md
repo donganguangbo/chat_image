@@ -38,7 +38,7 @@
 图生视频：
 281 基础模型
   -> 285 ltx-2.3-22b-distilled-lora-384-1.1.safetensors (0.5)
-  -> 329 ltx2.3_nsfw_furry.safetensors (1.0)
+  -> 329 sulphur_ltx23_better_nsfw_motion.safetensors (0.7)
   -> 282、316 两个 CFGGuider
 ```
 
@@ -193,7 +193,7 @@ dynamic_lora:
 
 `ltx-2.3-22b-distilled-lora-384-1.1.safetensors` 是通用固定 LoRA，
 不进入动作配置。图生视频默认保留固定的
-`ltx2.3_nsfw_furry.safetensors`。
+`sulphur_ltx23_better_nsfw_motion.safetensors`。
 
 ## 8. 注入算法
 
