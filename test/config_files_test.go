@@ -118,6 +118,10 @@ func TestImageEditWorkflowKeepsReferenceImages(t *testing.T) {
 	if latent["width"] != float64(576) || latent["height"] != float64(720) {
 		t.Fatalf("image edit workflow node 25 default size = %vx%v, want 576x720", latent["width"], latent["height"])
 	}
+	sampler := workflow["2"]["inputs"].(map[string]any)
+	if sampler["sampler_name"] != "euler_ancestral" || sampler["scheduler"] != "beta" {
+		t.Fatalf("image edit sampler = %v/%v, want euler_ancestral/beta", sampler["sampler_name"], sampler["scheduler"])
+	}
 }
 
 func hasBinding(cfg model.WorkflowConfig, nodeID string, input string, param string) bool {
@@ -241,6 +245,18 @@ func TestVideoWorkflowsUseExplicitStageBindings(t *testing.T) {
 		if !hasBinding(i2v, binding.node, binding.input, binding.param) {
 			t.Fatalf("i2v missing binding %s.%s <- %s", binding.node, binding.input, binding.param)
 		}
+	}
+	i2vWorkflowRaw, err := os.ReadFile(filepath.Join("..", "workflows", "ichat_image_to_video.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var i2vWorkflow map[string]map[string]any
+	if err := json.Unmarshal(i2vWorkflowRaw, &i2vWorkflow); err != nil {
+		t.Fatal(err)
+	}
+	firstFrameSampler := i2vWorkflow["319"]["inputs"].(map[string]any)
+	if firstFrameSampler["sampler_name"] != "euler_ancestral" || firstFrameSampler["scheduler"] != "beta" {
+		t.Fatalf("i2v first-frame sampler = %v/%v, want euler_ancestral/beta", firstFrameSampler["sampler_name"], firstFrameSampler["scheduler"])
 	}
 
 	t2vRaw, err := os.ReadFile(filepath.Join(workflowsDir, "ichat_text_to_video.yaml"))

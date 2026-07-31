@@ -4,7 +4,7 @@
       "seed": 65454653,
       "steps": 4,
       "cfg": 1,
-      "sampler_name": "sa_solver",
+      "sampler_name": "euler_ancestral",
       "scheduler": "beta",
       "denoise": 1,
       "model": [
