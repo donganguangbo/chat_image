@@ -32,9 +32,13 @@ services:
       start_period: 10m
 
   comfy-6006:
-    build:
-      context: ./isolated/comfy_6006/app
-      dockerfile: ../../../docker/comfy/Dockerfile
+    # Built from the repo (ComfyUI and every custom node pinned to the commit
+    # production runs — docker/comfy/node_pins.txt), so both instances share
+    # one image.
+    image: ${COMFY_IMAGE:-chat-image-comfy:local}
+    build: &comfy_build
+      context: .
+      dockerfile: docker/comfy/Dockerfile
       args:
         CUDA_IMAGE: ${COMFY_CUDA_IMAGE:-nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04}
     command:
@@ -76,11 +80,8 @@ services:
       start_period: 5m
 
   comfy-6009:
-    build:
-      context: ./isolated/comfy_6009/app
-      dockerfile: ../../../docker/comfy/Dockerfile
-      args:
-        CUDA_IMAGE: ${COMFY_CUDA_IMAGE:-nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04}
+    image: ${COMFY_IMAGE:-chat-image-comfy:local}
+    build: *comfy_build
     command:
       - python
       - -u

@@ -1,0 +1,2848 @@
+{
+    "2.1\\lightx2v_I2V_14B_480p_cfg_step_distill_rank128_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.1\\lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\传教士低噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\传教士高噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\射精低噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\射精高噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\突然插入低噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\突然插入高噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\阴部低噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2.2\\阴部高噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\FemNude_qwen-image-2512_epoch30.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Kook_Qwen_2512_真实幻想lora.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Kook_Qwen_V3极致真实.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Menace_Qwen-Image-2512.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Qwen-Image-2512-Lightning-4steps-V1.0-bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Qwen-Image-2512-Lightning-8steps-V1.0-bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Qwen-Image-2512_LoRa_by-AI_Characters_STYLE_SmartphoneSnapshotPhotoReality_v10_TRIGGER$amtr snapshot photo$.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\Shorty_hair-Q2512.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\blue_hair_q2512.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\qwen_2512_pussy_anus_v2_NSFW.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\亚洲身材.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\魔鬼身材v10.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "2512\\魔鬼身材v14.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-人群people_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-头发hair_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-照明lighting.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-皮肤skin.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-胖瘦weight.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-胸部Chest_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-色调ColorTone.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-质量quality.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "F2K_9b-滑块工具-髋部buttocks_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "FastWan_T2V_14B_480p_lora_rank_128_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Kook_Qwen_V3极致真实.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Kook_千问写实_Kook_Qwen_V1稳定版.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Kook_千问写实_Kook_Qwen_V2美人版.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "LTX-2.3-Licon-MSR-V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "LTX-2.3\\Ltx2.3-Licon-VBVR-I2V-390K-R32.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "LTX-2.3\\ltx2.3-transition.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "LTX2.3_Crisp_Enhance.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Ltx2.3-Licon-VBVR-I2V-240K-R32.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "QWEN-P0ssy_lora_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Qwen-Edit_扩图.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Qwen-Edit_换头换脸-V3.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Qwen-Edit_清晰放大_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Qwen-Edit_超写实HRP_20.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.1\\lightx2v_T2V_14B_cfg_step_distill_v2_lora_rank128_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\SVI_v2_PRO_Wan2.2-I2V-A14B_HIGH_lora_rank_128_fp16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\SVI_v2_PRO_Wan2.2-I2V-A14B_LOW_lora_rank_128_fp16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\Wan2.2-Low-MysticXXX-v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\Wan2.2-T2V-A14B-4steps-lora-rank64-Seko-V2.0-low.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\Wan22_I2V_VBVR_HIGH_rank_64_fp16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\wan2.2_i2v_A14b_high_noise_lora_rank64_lightx2v_4step_1022.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\wan2.2_i2v_A14b_low_noise_lora_rank64_lightx2v_4step_1022.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\2.2\\wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\wan2.2\\Wan2.2_600PX_亚洲人像_LoRA_Rank64_lowNoise.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\wan2.2\\Wan2.2_光影人像_Stories_in_Light_V1_lowNoise.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\wan2.2\\wan2.2_t2v_lightx2v_4steps_lora_v1.1_high_noise.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WAN\\wan2.2\\wan2.2_t2v_lightx2v_4steps_lora_v1.1_low_noise.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Wan2.1 - Fun-14B-InP-HPS2.1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Wan2.1 - I2V  - Bouncing & Jiggling Boobs- 弹跳动效.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Wan2.2 - I2V -Slop Bounce-Low-i2v-(弹跳lora不变脸).safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "Wan21_PusaV1_LoRA_14B_rank512_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "WanAnimate_relight_lora_fp16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-一致consistency.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-万物转动漫AnythingtoAnime .safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-亚洲hina_flux2Klein9b_asianMix_v1.4.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-图像融合fusion2250.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-人群people_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-头发hair_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-头发长度hair.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-头部Head_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-照明lighting.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-皮肤skin.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-眼睛Eye_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-胖瘦weight.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-胸部Chest_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-脸型LongFace_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-腰围waistline.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-色调ColorTone.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-视角angle_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-质量quality.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-镜头shoot_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-髋部buttocks2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-滑块工具-鼻子Nose_9B.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-电影光Cinematic Chiaroscuro Lighting.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\F2K_9b-破KLEIN-Unchained-V2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\flux-2-klein-NSFW.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\F2K_9b-NSW转真实turn2real_v1.5.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\F2K_9b-RuTou_v3.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\F2K_9b-内Innie.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\F2K_9b-后位.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\F2K_9b-后位2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\F2K_9b-部位优化_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "flux-2-klein\\特殊lora\\klein_snofs_v1_4.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\NEWKO2小孩.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\kera-mx-bse_c1-st6000.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\krea2-CG风格.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\krea2-姐妹花.safetensors": {
+        "enabled": true,
+        "triggers": [
+            "姐妹"
+        ],
+        "model_val": 0.9,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\krea2-漫画风格.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\krea2-网感可爱.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\krea2-迪丽热巴.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\krea2-陈都灵.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\偶印.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\Krea2\\姿势.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\特殊\\MysticXXX_KREA2_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\特殊\\k2_nice_body.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\特殊\\姿势灵活v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\特殊\\性.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\特殊\\更好看的阴部.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "krea2\\特殊\\阴部.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "lightx2v_I2V_14B_480p_cfg_step_distill_rank256_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "ltx-2-19b-ic-lora-detailer.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "ltx-2.3-22b-distilled-1.1_lora-dynamic_fro09_avg_rank_111_bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "ltx-2.3-22b-ic-lora-lipdub-0.9.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "ltx-2.3-22b-ic-lora-refocus.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "ltx-2.3-ChineseXianxiaStyle.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "qwen-Just-the-Nips-bumpy.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "qwen-image-edit-2511-multiple-angles-lora.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "t2v\\阴部低噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "t2v\\阴部高噪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Fun-Lora-Distill-8-Steps-2603-ComfyUI.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Kook_瑶光.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Turb_写实微调.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Z-Image_甜妹少女感，浅黑色头发_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Z-Image萌萌可爱的甜妹_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Z-Image高中学妹玉米地写真_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\Z-TX-WH13.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\base_better_pussy_v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\moody20E5B08FE59C86E884B8E5.McGx.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\weiwei-zib-v1_clean.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\人间可爱.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\写实写真，柔和的氛围感，细节丰富且极具视觉吸引力。_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\写真写实-日系感，白而细腻_v1 (1).safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\写真美女写实-高清美女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\写真，写实自然写实的户外光影感。_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\可爱少女写真_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\听风，安静.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\小说女主，清纯风_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\日常快照风格写真_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\极致美女写真laicg_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\梦幻（dreamy）_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清新自然，高清美女，初恋感氛围_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清新自然，高清，初恋感少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清纯可爱女生_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清纯甜妹摄影写真_V3.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清纯白丝甜妹美女_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清纯网感高颜值，既视感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清纯颜值装_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\清透，穿着校园女神温柔装_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\温柔眼神，白皙细腻的皮肤_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\甜妹自拍写真_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\白丝体操服美女_Z.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\皮肤真实，清纯，梦核，凸显身材_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\细节增强-美白-网感美少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\细节拉满，可爱萌妹_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\网感妆，自然光线，暖调滤镜_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\网红气质的女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\美女写真日常_Z.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\美少女-皮肤超白剔透泛着光泽_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\老色批RedLSP_NSFW_1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\萌主网感美女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\超萌写实_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\超高清，魅力，最高画质_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\超高颜值美少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\造相高颜值，冷白皮，时尚前卫穿搭_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\逼真zimage_base_better_pussy_spread_v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\长相呆萌可爱的钝感女生_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\静谧清冷且温柔_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\顶级身材美感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm\\风格清新、时尚，氛围温馨舒适。_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_HanGaIn_韩佳人.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_ch_陈红.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_chy_陈昊宇.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_iu_李知恩.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_ljx_李嘉欣.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_lrt_李若彤.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_lt_刘涛.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_qsz_邱淑贞.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_sy_孙怡.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\girlslike_zi_yrong_杨蓉.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 周也.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 喻钟黎.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 孔雪儿.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 孟子义.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 宋雨琦.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 张靖仪.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 李云霄.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 毛晓彤.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 王楚然.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 王玉雯.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 田曦薇.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 白鹿.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 程潇.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 章若楠.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 艾米.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 虞书欣.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 赵露思.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\明星 陈都灵.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\王冰冰.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm明星\\马凡舒.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIB-电影光Chiaroscuro and Cinematic Lighting Style.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-Mystic-XXX-ZIT-V6.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-伦勃朗光线rembrandt_ZIT_tyler_x_harris.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-影棚摄影photolab_v2-21a2257f9eaa.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-影棚摄影photolab_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-手脚身体皮肤v1.1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-电影光Cinematic Chiaroscuro Lighting.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-电影黑暗MschCine26_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "zm特效\\ZIT-身材body-BBW.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\Qwen-600PX亚洲人像抽卡机_Rank64.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\Z-image-眼睛细节增强-DetailedEyes-LoRA_V2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\ZIT-小红书Style-网感写实-亚洲网红人像_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\z-image _ 雾灰幼柔 _ 32_0.8.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\z-image 极致氛围光影LORA_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\z-image-极致写实.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\z-image-细节增强v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\z-image流量脸人物面部模型35_0.8.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "下载\\星绘-Z-Image——哈苏人像滤镜_Z-Image——哈苏人像滤镜.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\2511-AnyPose-base-姿势学习.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\2511-AnyPose-helper-姿势学习.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\Qwen-Edit-2509-Light-igration_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\QweneditChagneHeadV3_换头换脸.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\clothes_tryon_qwen-edit-lora.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\consistence_edit_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\extract-outfit_v3.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\nsfw_adv_v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\put it here_QwenEdit_V0.1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\qwen_image_edit_inpainting.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\2511\\qwen_image_edit_remove-clothing_v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\Qwen_Edit百变姿势_cospose\\Qwen_Edit百变姿势.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\加速\\4steps-V2.0-bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\加速\\4steps-V3.0-bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\加速\\8steps-V1.0-fp8.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\加速\\8steps-V2.0-bf16.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\加速\\iPhone.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "iphone"
+        ],
+        "model_val": 0.8,
+        "clip_val": 1
+    },
+    "千问\\加速\\samsung_qwen2512.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\加速\\电影感.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "电影"
+        ],
+        "model_val": 0.8,
+        "clip_val": 1
+    },
+    "千问\\新\\6F_testfire.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\新\\qwen_2512_pussy_v1_000027300.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\新\\刘亦菲.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\特殊\\两点一线.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "阴毛",
+            "胸部",
+            "大胸"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\乳交.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "乳交"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\乳房V2.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "大乳房",
+            "下垂"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\乳房v1.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "小乳",
+            "下垂"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\全身.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "乳房",
+            "阴道粉嫩"
+        ],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\特殊\\内裤手.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "手伸内裤",
+            "舔乳房"
+        ],
+        "model_val": 0.7,
+        "clip_val": 1
+    },
+    "千问\\特殊\\口爱.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "嘴唇阴道",
+            "精液"
+        ],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\特殊\\多乳.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "翘",
+            "瘦",
+            "娇小",
+            "身材"
+        ],
+        "model_val": 1.2,
+        "clip_val": 1
+    },
+    "千问\\特殊\\多姿势1.3.safetensors": {
+        "enabled": true,
+        "triggers": [
+            "脱",
+            "后面",
+            "做爱",
+            "怀孕",
+            "口交"
+        ],
+        "model_val": 0.8,
+        "clip_val": 1
+    },
+    "千问\\特殊\\多姿势原版.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "精液",
+            "摸"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\小乳.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "小胸",
+            "胸小",
+            "小乳"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\小女孩身体.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "娇小",
+            "瘦"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\小身形小胸无毛.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "娇小",
+            "瘦"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\小阴.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "阴道小",
+            "瘦"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\干净的内阴.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "阴道",
+            "裸体",
+            "瘦",
+            "胸部"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\平胸.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "平胸"
+        ],
+        "model_val": 0.7,
+        "clip_val": 1
+    },
+    "千问\\特殊\\彼得森侧前方后入趴着.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "后入"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\彼得森后入侧前方45度正脸.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "后入"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\彼得森后入第一视角.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "后入"
+        ],
+        "model_val": 0.8,
+        "clip_val": 1
+    },
+    "千问\\特殊\\彼得森正常位第一视角.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "第一视角"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\插阴2512.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "做爱",
+            "张开",
+            "抬",
+            "后面",
+            "口交",
+            "女上"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\插阴2512v2.safetensors": {
+        "enabled": true,
+        "triggers": [
+            "做爱",
+            "阴道",
+            "做ai",
+            "漏yin裙",
+            "漏yin裤",
+            "全luo"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\插阴_v2.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "做爱",
+            "插",
+            "后面",
+            "特写"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\摸臂.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "摸屁股"
+        ],
+        "model_val": 0.75,
+        "clip_val": 1
+    },
+    "千问\\特殊\\日本女优.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "日本"
+        ],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\特殊\\正前方口交正脸.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "口交",
+            "正脸"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\深喉.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "深喉",
+            "口交",
+            "口jiao"
+        ],
+        "model_val": 0.8,
+        "clip_val": 1
+    },
+    "千问\\特殊\\灵活v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "张开",
+            "手淫",
+            "自拍"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\白虎.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "阴道",
+            "阴唇",
+            "干净",
+            "屁股",
+            "手淫"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\背后进入.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "后面",
+            "侧面"
+        ],
+        "model_val": 0.5,
+        "clip_val": 0.9
+    },
+    "千问\\特殊\\脱裤臂.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "脱裤屁股"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\自然乳房.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "胸",
+            "身材",
+            "胸大",
+            "瘦",
+            "脱"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\舔.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "坐在",
+            "嘴唇伸进"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\舔屁股.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "舔屁股",
+            "亲屁股"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\身体v2.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "漏出",
+            "身体",
+            "胸部"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\阴毛.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "阴毛"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\阴部.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "阴道",
+            "裸体",
+            "做爱",
+            "漏阴-裙子",
+            "漏阴-裤子"
+        ],
+        "model_val": 0.6,
+        "clip_val": 1
+    },
+    "千问\\特殊\\阴部v1.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "瘦",
+            "阴道",
+            "屁股",
+            "口交"
+        ],
+        "model_val": 0.5,
+        "clip_val": 0.7
+    },
+    "千问\\特殊\\阴部真实v1.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "阴道",
+            "屁股",
+            "裸体",
+            "抬高"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\魔鬼身材v23.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "胸部",
+            "乳房",
+            "裸体",
+            "做爱",
+            "做ai",
+            "漏yin裙",
+            "漏yin裤",
+            "全luo"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\魔鬼身材v6.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "身材",
+            "长腿"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\特殊\\魔鬼身材v9.safetensors": {
+        "enabled": true,
+        "triggers": [
+            "胸部",
+            "裸体",
+            "做爱",
+            "漏胸",
+            "口交",
+            "舔阴",
+            "舔屁股",
+            "后入",
+            "做ai",
+            "漏yin裙",
+            "漏yin裤",
+            "全luo",
+            "乳房"
+        ],
+        "model_val": 0.5,
+        "clip_val": 1
+    },
+    "千问\\身材\\胖瘦.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\身材\\胸部.safetensors": {
+        "enabled": false,
+        "triggers": [
+            "衣服滑落"
+        ],
+        "model_val": 0.7,
+        "clip_val": 1.5
+    },
+    "千问\\身材\\腰部.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "千问\\身材\\臂部.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\DonRat_Fluxios真实光影_v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\Kontext-Relighting-重新打光-给产品环境人物重新打光_v1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\Qwen-Edit-2509-光影迁移IC-ligth_Alpha0.1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\Qwen2511生成超写实人像-人像细节修复_HRP_20.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\一键重打光｜空间光线调整_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\图像高清修复-Image-Repair_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\提取纹理extract_texture_qwen_image_edit_2509_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "去AI专用\\移除光影-Qwen-Image-Edit-2509-Light-Restoration_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "口交性爱撸管足交.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\18岁女大学生_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\18岁女大学生，标准完美瓜子脸_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\2512colab_4.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen+F.1清纯软萌甜妹呆萌小萝莉_Qwen.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-CG质感-湿润美女_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-Image-写实增强_1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-Image甜妹JK白丝写真_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-Image第一人称吊带袜_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-Mo美女-超清晰皮肤_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-image氛围感写真人像辣妹穿搭_Qwen-image氛围感写真人像辣妹穿搭.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-写真超清晰感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-冷白皮极致身材_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-发丝轻飘，凌乱，随机角度拍摄_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-可爱灵动_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-性感美女摄影_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-极致美感CG_千问2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-清雪3.0人像写实_千问3.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-甜系氛围摄影_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-甜美学生感-摄影日常_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-真实感，年轻漂亮女子_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-精致美女-日常照片_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-纯欲风，皮肤白皙，偶像气质_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-绝美底妆通透美女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-绝美滤镜，黑白层次柔和，冷白皮_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-美白透亮可爱写真_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-超现实，细节生动完美_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-超美写实人像_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-超美真颜_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-风格简约且富有生活气息_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen-高清氧颜_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen写实摄影_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-cos。立体五官。微光围绕_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-可爱少女风_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-少女感写实_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-清新治愈可爱少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-清晰画质，妆造精致_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-精致细节，细腻写实写真照_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-纪实快照，抓拍实拍_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-纯欲风,身校服外套_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问-超美感氛围美女_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen千问·原色_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen学姐气质。皮肤质感自然_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen完美写实美颜_写真摄影_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen少女真人，绝代佳人_v1 (1).safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen我要上春晚-美感柔和_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen明制汉服奢华婚服摄影风格_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen极致小红书抖音快手美女_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen清纯甜美JK-日常摄影_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen皮肤白皙，小清新_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen美人白梦妍，玉骨冰肌_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen色彩表达，情绪叙事_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen迷离滤镜、 高质量美女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen雪地少女-美感美拍_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\Qwen青春靓丽女学生 _v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\XXS-超清纯女孩-千问_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\YY-小红书高颜值女孩qwen_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\ZOZ_人像摄影~S_QW.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\优秀Glow 可爱少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\优秀Qwen湛佳琳艺术美学（2512）_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\优秀Qwen超现实高级感，杰作_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\优秀千问甜妹运动风_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\优秀清新少女写实_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\优秀表情可爱，甜美氛围，细腻笔触，独特韵味的美_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\写实_国色天香_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\写实圆润幼态脸蛋, 自然淡妆, 面带温柔甜笑_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\冷白皮女生有着柔顺的深棕长发自然垂落_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\冷白皮少女，身材s型，戴着毛绒发卡_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-CD拍摄质感_写实极致_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-人像写实可爱少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-写实惬意_清新美颜_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-写实摄影美女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-冷奶白柔光，干净校园感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-可爱女孩-摄影街拍_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-女孩_纯真美感摄影_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-学生感_氛围_摄影_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-宁静惬意_写实美人_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-梦幻氛围_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-纯欲人像_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-纯欲颜值网感美女写实_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-纯颜极致-美感摄影_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-超清写实美感-人像写实_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-随手一拍的感觉_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问-高级滤镜写实_极致美女_v2.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问写实唯美人像_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问写实摄影人像完美_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问写实流行色彩-人像_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问写实眼神清澈柔和，气质清甜治愈_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问写真, 清透自然的淡妆, 面带浅笑_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问写真美女，楚楚可怜。画面聚焦面部_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问千古情_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问少女女孩_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问少女，茶歇裙版型优雅，碎花印花复古_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问润肤真实_国风_写真_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问甜妹冷白皮女生_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问短剧女主脸型_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问精致写实_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问纯欲风，光线柔和自然_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问绘世女装摄影美颜_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问胶片质感，写实逼真，清透_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问运动少女，写实写真美颜_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问韩系甜妹风,少女心满满_粉色樱花女仆装_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问颜值美人_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\千问风格甜美少女系_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\呆萌少女写实_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\呆萌甜妹_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\唯美专业摄影，精心构图_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\学生感，圆杏眼，饱满卧蚕，流畅脸部轮廓，白皙通透肌肤_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\富士Qwen_甜美少女_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\小香风-韩系温柔风_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\御姐美女，纯欲_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\性感美女摄影_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\恋爱_镜头感_故事感_青春校园-qwen_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\打卡日常感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\星梦｜Qwen-Image｜摄影风格｜人体、艺术写真_12_17.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\极致光影美女艺术摄影_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\江南女子_甜妹写真_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\清纯写真，校园风JK少女_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\清纯软萌少女感，温柔学院少女氛围感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\甜美清纯的气质，圆脸，饱满的脸颊_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\甜酷少女,冷白皮,清透淡妆,女装设计_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\画面真实，超清晰_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\皮肤白皙，偶像气质，fairskin_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\真实写真-明眸皓齿 清纯可人_qwen.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\真实摄影，森林光斑氛围_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\神态清新自然，呈现日系少女的简约_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\神里绫华_安柏_可莉 清纯少女cos_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\细节增强-提升清晰度-Qwen2512-Enhance-Details-LoRA_V1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\绝色女生，高清，穿着水粉色连衣裙_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\网络氛围滤镜_qwen.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\美少女系，氛围慵懒俏皮_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\表情恬静无辜，整体风格日系清新且自然灵动_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\超写实摄影-女孩-美拍_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\超现实拍摄美感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\超白网感_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\超美白摄影网感女神_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\造物Qwen-适配Wan2.2_舞蹈视频卡点美女_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\镂空数字艺术绘画_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\霓梦_v0.89bast.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\青春校园-甜美美拍_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\韩系简约学院风_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\韩系软萌甜妹冷白皮女孩_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\顶级网感-千问_v1.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\高中生深圳校服写真_V1.0.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    },
+    "老婆\\高颜女孩_写真胶片-千问_千问.safetensors": {
+        "enabled": false,
+        "triggers": [],
+        "model_val": 1,
+        "clip_val": 1
+    }
+}

@@ -1,0 +1,51 @@
+# Custom node pins for the ComfyUI image — one per line: <dir>|<owner/repo>|<commit>
+#
+# Every commit here was located by matching the git blob SHA of the node's
+# __init__.py against upstream history, so each pin is the version the
+# production server actually runs — NOT upstream latest. That distinction
+# matters: production RES4LYF is 419de2d7 (2026-06-15), whose __init__.py
+# differs from both v1.1.0 and main, and it provides ClownsharKSampler_Beta
+# which every workflow depends on.
+#
+# Regenerate/verify with scripts/verify_node_pins.sh.
+# prompt_grid_16_pro has no public upstream and ships in docker/comfy/vendor_nodes/.
+ComfyLiterals|M1kep/ComfyLiterals|bdddb08ca82d90d75d97b1d437a652e0284a32ac
+ComfyUI-Easy-Use|yolain/ComfyUI-Easy-Use|5ec3b5ef861fe45c4e9966d17c4546e943417723
+ComfyUI-Florence2|kijai/ComfyUI-Florence2|1bb7f5d35cbc222cde5287f6fe1bc8abc764fa17
+ComfyUI-Frame-Interpolation|Fannovel16/ComfyUI-Frame-Interpolation|605b5875c3c040890bacd742d8a7a7738c9b1629
+ComfyUI-GGUF|city96/ComfyUI-GGUF|a8ce4e8d7c3b8d99c12fbc2892fde1b42696238d
+ComfyUI-HunyuanVideo-Foley|phazei/ComfyUI-HunyuanVideo-Foley|a40e7203abcd531b1c1c43f5a9fcfeb094b70f45
+ComfyUI-Impact-Pack|ltdrdata/ComfyUI-Impact-Pack|a1d844667034bc2ed2b8806187488d27bf4d6c71
+ComfyUI-Impact-Subpack|ltdrdata/ComfyUI-Impact-Subpack|50c7b71a6a224734cc9b21963c6d1926816a97f1
+ComfyUI-KJNodes|kijai/ComfyUI-KJNodes|fd8a6d2cfeb591bc235ff711df407ffb82720d29
+ComfyUI-Krea2T-Enhancer|capitan01R/ComfyUI-Krea2T-Enhancer|cd9be257afb1e43f028596b810a9af4fcdf252c4
+ComfyUI-LTXVideo|Lightricks/ComfyUI-LTXVideo|2e2ac8175902d6c922ca57bc99ecaac4d42ddb2d
+ComfyUI-LogicUtils|aria1th/ComfyUI-LogicUtils|110a8b3f0f3daffc8195846fecd57016089ed5b9
+ComfyUI-PainterI2V|princepainter/ComfyUI-PainterI2V|63f61e0b7729d91e12a518f8a33a329794e75890
+ComfyUI-ReActor|Gourieff/ComfyUI-ReActor|ccfade1a188149ba4779ea11b319aa11256aad0c
+ComfyUI-VideoHelperSuite|Kosinkadink/ComfyUI-VideoHelperSuite|a9d08964ad39d0ac400c9c8e8dc445098a39b48e
+ComfyUI-WanMoeKSampler|stduhpf/ComfyUI-WanMoeKSampler|e5b2576c73d02f5991711275d1c202828133c035
+ComfyUI-wanBlockswap|orssorbit/ComfyUI-wanBlockswap|6b2ccb81a13679d0d2d7a8e24baf3817ad2fe5aa
+ComfyUI_Comfyroll_CustomNodes|Suzie1/ComfyUI_Comfyroll_CustomNodes|d78b780ae43fcf8c6b7c6505e6ffb4584281ceca
+ComfyUI_Fill-Nodes|filliptm/ComfyUI_Fill-Nodes|d2453f02a1b8a03570e9855af8f5796fa40ea7d9
+ComfyUI_LayerStyle|chflame163/ComfyUI_LayerStyle|8848eb7731d1181a4939d6fca4bdb9af2e449e1b
+ComfyUI_PuLID_Flux_ll|lldacing/ComfyUI_PuLID_Flux_ll|494e4205a67b16b3db355504ea4ba2557278a567
+ComfyUI_Qwen3-VL-Instruct|IuvenisSapiens/Comfyui_Qwen3-VL-Instruct|b2008e9378bb040f04e422bebd08f5d8abc8a060
+ComfyUI_UltimateSDUpscale|ssitu/ComfyUI_UltimateSDUpscale|cf5d6b55d128e47e0bc5482d8aded6f975272722
+ComfyUI_essentials|cubiq/ComfyUI_essentials|05b82cf39a6827d5462f9faf6935d50dd6283b57
+Comfyui_TTP_Toolset|TTPlanetPig/Comfyui_TTP_Toolset|981ae4020e7ae103b913f004e51653a3483003f4
+Nvidia_RTX_Nodes_ComfyUI|Comfy-Org/Nvidia_RTX_Nodes_ComfyUI|012dc673bc17f4f6dd8599ed2245d2bcc0b1489f
+RES4LYF|ClownsharkBatwing/RES4LYF|419de2d7c78f415dde9aa352a7231820ebfc17a4
+cg-use-everywhere|chrisgoringe/cg-use-everywhere|a62493dee41369503c562a0622e261c19f9d450e
+comfyui-art-venture|sipherxyz/comfyui-art-venture|f97ff961541c20856f74d29b692b01c4b0eaecda
+comfyui-custom-scripts|pythongosssss/ComfyUI-Custom-Scripts|8cc071e40d0270d42e00028926688c68f069fde7
+comfyui-image-saver|alexopus/ComfyUI-Image-Saver|c29e16bdcb3d4172ac2ba0689a146ce659bf2d9a
+comfyui-krea2edit|lbouaraba/comfyui-krea2edit|e55907682a3821c834693b47594f829da119be4b
+comfyui-resolution-master|Azornes/Comfyui-Resolution-Master|d43634b64cdf53eb057fc02e5cb5f3f2f21a4281
+comfyui-workflow-to-api-converter-endpoint|SethRobinson/comfyui-workflow-to-api-converter-endpoint|bc8538278f82053b3ca10a44d62d02596f8e1a37
+comfyui_controlnet_aux|Fannovel16/comfyui_controlnet_aux|e6bbd56e8fbed69c54ecfbcadb43e42d10b877fb
+crt-nodes|PGCRT/CRT-Nodes|c0798d356bc3294d0479b50308acca219b3d5854
+qq-nodes-comfyui|kenjiqq/qq-nodes-comfyui|04da027bd78f018d318cfac6a55fc4fd1f2b689f
+rgthree-comfy|rgthree/rgthree-comfy|42e73c3c48e8268129a6a1ea6d9766913bfc5435
+was-node-suite-comfyui|WASasquatch/was-node-suite-comfyui|6947094067e04c4aaa82b973319921b1882c6266
+was-ns|ltdrdata/was-node-suite-comfyui|6947094067e04c4aaa82b973319921b1882c6266
