@@ -36,6 +36,15 @@ go mod tidy
 go run .
 ```
 
+新服务器需要先下载模型（约 154 GB，可断点续传，反复执行安全）：
+
+```bash
+bash scripts/download_models.sh          # 全部
+bash scripts/download_models.sh --check  # 只看缺哪些
+```
+
+清单与来源见 [docs/MODELS.md](docs/MODELS.md)。
+
 GPUHub 这类不能运行 Docker 的容器使用项目 Supervisor 守护：
 
 ```bash
