@@ -151,7 +151,7 @@ func normalizeVideoRequest(req V1VideoRequest) (V1VideoRequest, error) {
 	}
 	seconds := req.Seconds
 	if seconds == 0 {
-		seconds = req.DurationSec
+		seconds = V1Seconds(req.DurationSec)
 	}
 	firstFramePrompt := ""
 	firstFrameNegativePrompt := ""

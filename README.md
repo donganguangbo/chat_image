@@ -42,6 +42,16 @@ Authorization: Bearer <token>
 
 跳过 HMAC。两种方式**同时生效**，原有签名客户端不受影响，所以启用它不是一次迁移。
 
+**Bearer 调用方拿到的响应形状也不同**（按鉴权方式分流，见 `createImageTask`）：
+
+| | HMAC（旧客户端） | Bearer（网关） |
+|---|---|---|
+| `POST /v1/images/generations` | 异步任务体 `{id, status}` | **OpenAI 标准同步** `{created, data:[{url}]}`（内部等待上限 120s，超时 504） |
+| `POST /v1/videos` | 同一形状 | 同一形状（Sora 任务体） |
+
+视频入参同时兼容 Sora 形状：`seconds` 收数字或字符串（`"4"`），未知字段不再拒收
+（网关转发会附加自有字段）。旧客户端退役后，图片会收敛成只同步。
+
 代价说清楚：**bearer token 被抓到就能重放**，而 HMAC 不能（nonce 一次性 + ±300s 窗口）。
 所以这条路只给「网关 → 本服务」的内网链路用，**公网可达的实例不要开**。
 

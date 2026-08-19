@@ -2,9 +2,9 @@ package api
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"chat_image/app/service"
 )
@@ -19,7 +19,7 @@ func (h *V1Handler) HandleImageGeneration(w http.ResponseWriter, r *http.Request
 		writeAPIError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	h.createImageTask(w, "t2i", "image.generation", req)
+	h.createImageTask(w, r, "t2i", "image.generation", req)
 }
 
 func (h *V1Handler) HandleImageEdit(w http.ResponseWriter, r *http.Request) {
@@ -32,10 +32,10 @@ func (h *V1Handler) HandleImageEdit(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	h.createImageTask(w, "edit", "image.edit", req)
+	h.createImageTask(w, r, "edit", "image.edit", req)
 }
 
-func (h *V1Handler) createImageTask(w http.ResponseWriter, category, object string, req V1ImageRequest) {
+func (h *V1Handler) createImageTask(w http.ResponseWriter, r *http.Request, category, object string, req V1ImageRequest) {
 	workflowID := h.service.WorkflowForCategory(category)
 	if workflowID == "" {
 		writeAPIError(w, http.StatusBadRequest, "category workflow not configured")
@@ -86,7 +86,78 @@ func (h *V1Handler) createImageTask(w http.ResponseWriter, category, object stri
 		writeTaskError(w, err)
 		return
 	}
+	// Two response contracts, told apart by how the caller authenticated
+	// (see service.AuthedViaBearer):
+	//   - bearer (model gateways, e.g. new-api): OpenAI's images API is
+	//     *synchronous* — dall-e-3 itself blocks 10-20s. Gateways bill and
+	//     relay that shape; an async task envelope is useless to them since
+	//     they cannot poll our private task route.
+	//   - HMAC (legacy chat-web): keeps the async task envelope untouched.
+	// Collapse to sync-only once the legacy caller is retired.
+	if service.AuthedViaBearer(r) {
+		h.respondImageSync(w, r, task.ID)
+		return
+	}
 	writeJSON(w, http.StatusOK, v1ResponseFromTask(task, object))
+}
+
+// imageSyncWait bounds the synchronous wait. Generation measured ~15s on the
+// current KREA2 workflow; 120s leaves headroom for queue depth while staying
+// inside every caller's timeout (ichat client 180s > gateway relay > this).
+const imageSyncWait = 120 * time.Second
+
+// imageSyncPollInterval GetTask is an in-memory snapshot behind a mutex —
+// polling it is cheap; 500ms keeps sync latency close to actual finish time.
+const imageSyncPollInterval = 500 * time.Millisecond
+
+// respondImageSync blocks until the task settles, then answers in OpenAI's
+// standard images shape: {created, data:[{url}]}.
+func (h *V1Handler) respondImageSync(w http.ResponseWriter, r *http.Request, taskID string) {
+	deadline := time.Now().Add(imageSyncWait)
+	for {
+		task := h.service.GetTask(taskID)
+		if task == nil {
+			writeAPIError(w, http.StatusInternalServerError, "task vanished")
+			return
+		}
+		switch task.Status {
+		case "completed":
+			resp := V1ImageSyncResponse{Created: task.CreatedAt.Unix()}
+			for _, out := range task.Outputs {
+				if out.URL == "" || out.Kind != "image" {
+					continue
+				}
+				resp.Data = append(resp.Data, V1OutputData{URL: out.URL})
+			}
+			if len(resp.Data) == 0 {
+				// A completed task with no image output is a workflow bug,
+				// not a caller error — surface it as such.
+				writeAPIError(w, http.StatusInternalServerError, "task completed without image output")
+				return
+			}
+			writeJSON(w, http.StatusOK, resp)
+			return
+		case "failed":
+			writeAPIError(w, http.StatusInternalServerError, task.Error)
+			return
+		case "cancelled":
+			writeAPIError(w, http.StatusConflict, "task cancelled")
+			return
+		}
+		if time.Now().After(deadline) {
+			// 504, not 500: the task may still finish; the caller chose a
+			// synchronous contract and ran out of patience, nothing is broken.
+			writeAPIError(w, http.StatusGatewayTimeout, "image generation timed out after "+imageSyncWait.String())
+			return
+		}
+		select {
+		case <-r.Context().Done():
+			// Caller hung up — stop burning the poll loop. The task itself
+			// keeps running; its output lands in storage like any other.
+			return
+		case <-time.After(imageSyncPollInterval):
+		}
+	}
 }
 
 func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
@@ -94,14 +165,13 @@ func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
+	// Unknown fields are tolerated on purpose: model gateways (new-api) attach
+	// their own fields when forwarding. Strict rejection means the service
+	// cannot sit behind a gateway. Typos in optional fields now fall through
+	// silently — the explicit/legacy contract check below still catches mixed
+	// payloads, which is the mistake that actually bit us.
 	var req V1VideoRequest
-	decoder := json.NewDecoder(r.Body)
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&req); err != nil {
-		writeAPIError(w, http.StatusBadRequest, "invalid JSON body")
-		return
-	}
-	if err := decoder.Decode(&struct{}{}); err != io.EOF {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeAPIError(w, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
@@ -139,7 +209,7 @@ func (h *V1Handler) HandleVideoCreate(w http.ResponseWriter, r *http.Request) {
 		params["action_id"] = actionID
 	}
 	if req.Seconds > 0 {
-		params["duration_sec"] = req.Seconds
+		params["duration_sec"] = int(req.Seconds)
 	}
 	if resolution := strings.TrimSpace(req.Resolution); resolution != "" {
 		params["resolution"] = resolution

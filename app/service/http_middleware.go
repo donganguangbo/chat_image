@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -193,6 +194,20 @@ const (
 	bearerPrefix        = "Bearer "
 )
 
+// authSchemeCtxKey marks which scheme authenticated the request.
+type authSchemeCtxKey struct{}
+
+// AuthedViaBearer reports whether the request was authenticated by the bearer
+// path. Handlers use it to pick a response contract: bearer callers are
+// OpenAI-shaped gateways (new-api) that expect the standard synchronous
+// images response; HMAC callers are our own legacy clients that expect the
+// async task envelope. The auth scheme is the one signal that reliably tells
+// the two audiences apart without inventing a request flag.
+func AuthedViaBearer(r *http.Request) bool {
+	v, _ := r.Context().Value(authSchemeCtxKey{}).(string)
+	return v == "bearer"
+}
+
 type nonceCache struct {
 	mu      sync.Mutex
 	entries map[string]int64 // nonce -> unix seconds seen
@@ -267,7 +282,8 @@ func withHMACAuth(next http.Handler, secret, bearerToken string, nc *nonceCache,
 				// Constant-time compare: a byte-by-byte early exit would leak
 				// the token one character at a time under timing analysis.
 				if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(presented)), bearerBytes) == 1 {
-					next.ServeHTTP(w, r)
+					next.ServeHTTP(w, r.WithContext(
+						context.WithValue(r.Context(), authSchemeCtxKey{}, "bearer")))
 					return
 				}
 				logAuthReject(r, "invalid bearer token")
