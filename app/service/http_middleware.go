@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -160,6 +162,25 @@ func withCORS(next http.Handler) http.Handler {
 //
 // /healthz and /outputs/ bypass auth — health is for monitors; outputs are
 // static files served to end-users whose browsers cannot attach headers.
+//
+// Bearer alternative (for upstream gateways)
+//
+// When GATEWAY_BEARER_TOKEN is set, a request may instead present
+//   Authorization: Bearer <token>
+// and skip the HMAC dance. This exists for one reason: model gateways such as
+// new-api can only send a static bearer token per channel — they have no hook
+// to compute a per-request signature. Without this, fronting this service with
+// such a gateway would require a signing proxy: another process to deploy,
+// monitor and keep in sync, existing solely to translate one auth scheme into
+// another.
+//
+// The trade-off is explicit: a bearer token is replayable if the channel is
+// observed, while the HMAC scheme is not. That is acceptable only because the
+// intended deployment is gateway→service over a private network. **Do not
+// enable it on a publicly reachable instance** — keep HMAC there.
+//
+// Both schemes stay live simultaneously: existing HMAC clients keep working
+// unchanged, so enabling this is not a migration.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const (
@@ -167,6 +188,9 @@ const (
 	hmacNonceHeader     = "X-Gateway-Nonce"
 	hmacSignatureHeader = "X-Gateway-Signature"
 	hmacTimeWindowSec   = 300
+
+	authorizationHeader = "Authorization"
+	bearerPrefix        = "Bearer "
 )
 
 type nonceCache struct {
@@ -226,12 +250,32 @@ func bypassAuth(r *http.Request) bool {
 	return false
 }
 
-func withHMACAuth(next http.Handler, secret string, nc *nonceCache, bodyBudget *byteBudget) http.Handler {
+func withHMACAuth(next http.Handler, secret, bearerToken string, nc *nonceCache, bodyBudget *byteBudget) http.Handler {
 	secretBytes := []byte(secret)
+	bearerBytes := []byte(bearerToken)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if bypassAuth(r) {
 			next.ServeHTTP(w, r)
 			return
+		}
+
+		// Bearer path (see the block comment above): checked before the HMAC
+		// path because it needs neither the body nor a nonce — an upstream
+		// gateway's request should not be buffered just to be authenticated.
+		if len(bearerBytes) > 0 {
+			if presented, ok := strings.CutPrefix(r.Header.Get(authorizationHeader), bearerPrefix); ok {
+				// Constant-time compare: a byte-by-byte early exit would leak
+				// the token one character at a time under timing analysis.
+				if subtle.ConstantTimeCompare([]byte(strings.TrimSpace(presented)), bearerBytes) == 1 {
+					next.ServeHTTP(w, r)
+					return
+				}
+				logAuthReject(r, "invalid bearer token")
+				http.Error(w, "unauthorized: invalid bearer token", http.StatusUnauthorized)
+				return
+			}
+			// No bearer header at all → fall through to HMAC, so both schemes
+			// keep working side by side.
 		}
 
 		tsStr := r.Header.Get(hmacTimestampHeader)

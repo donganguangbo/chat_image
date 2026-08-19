@@ -56,6 +56,17 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	if gatewaySecret == "" {
 		log.Fatal("gateway_secret is required in service config or GATEWAY_SECRET env")
 	}
+	// Optional bearer token for upstream model gateways (see withHMACAuth's
+	// block comment). Env wins over the config file, same as the HMAC secret.
+	gatewayBearerToken := strings.TrimSpace(serviceCfg.GatewayBearerToken)
+	if v := strings.TrimSpace(env("GATEWAY_BEARER_TOKEN", "")); v != "" {
+		gatewayBearerToken = v
+	}
+	if gatewayBearerToken != "" {
+		// Log that it is on, never the value. Operators need to know a
+		// replayable credential is accepted; nobody needs the token in a log.
+		log.Printf("auth: bearer token accepted in addition to HMAC (private-network deployments only)")
+	}
 	log.Printf(
 		"category defaults: t2i=%s edit=%s t2v=%s i2v=%s",
 		serviceCfg.DefaultWorkflows.TextToImage,
@@ -165,7 +176,7 @@ func Run(registerRoutes func(*http.ServeMux, *Server, string, string)) {
 	// neither huge bodies nor a flood of small ones can OOM the gateway. ~7 legit
 	// ~134 MB i2v uploads fit in the 1 GiB default.
 	bodyBudget := newByteBudget(int64(envInt("GATEWAY_MAX_INFLIGHT_BODY_BYTES", 1<<30)))
-	handler := withHMACAuth(withCORS(mux), gatewaySecret, nonces, bodyBudget)
+	handler := withHMACAuth(withCORS(mux), gatewaySecret, gatewayBearerToken, nonces, bodyBudget)
 	httpSrv := &http.Server{
 		Addr:              listenAddr,
 		Handler:           handler,

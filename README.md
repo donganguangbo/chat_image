@@ -26,6 +26,27 @@
 - `TEXT_BASE_URL` (可选，覆盖 `service.yaml` 里的文字模型服务地址)
 - `TEXT_MODEL` (可选，覆盖默认文字模型名)
 - `TEXT_API_KEY` (可选，转发给文字模型服务的 Bearer token)
+- `GATEWAY_SECRET` (必填，HMAC 请求签名的共享密钥)
+- `GATEWAY_BEARER_TOKEN` (可选，见下面「上游网关接入」)
+
+## 上游网关接入（Bearer）
+
+默认所有接口都要 HMAC 签名（`X-Gateway-Timestamp/Nonce/Signature`）。但 new-api
+这类模型网关**没法按请求算签名** —— 它一个渠道只能配一个静态 token。
+
+配上 `GATEWAY_BEARER_TOKEN` 之后，请求可以改用：
+
+```
+Authorization: Bearer <token>
+```
+
+跳过 HMAC。两种方式**同时生效**，原有签名客户端不受影响，所以启用它不是一次迁移。
+
+代价说清楚：**bearer token 被抓到就能重放**，而 HMAC 不能（nonce 一次性 + ±300s 窗口）。
+所以这条路只给「网关 → 本服务」的内网链路用，**公网可达的实例不要开**。
+
+不开这个的替代方案是在前面加一个加签代理，那意味着多一个要部署、要监控、要跟着
+升级的进程，只为把一种鉴权翻译成另一种 —— 不划算。
 
 ## 运行
 
