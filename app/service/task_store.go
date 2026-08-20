@@ -31,6 +31,22 @@ func (s *Server) WorkflowForCategory(category string) string {
 	}
 }
 
+// TextBaseURL returns the text backend base URL (empty = text backend disabled).
+// The OpenAI /v1/models handler uses it to decide whether to advertise the text
+// model to local clients (Chatbox, new-api, etc.).
+func (s *Server) TextBaseURL() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return strings.TrimSpace(s.service.Text.BaseURL)
+}
+
+// TextModelName returns the configured text backend model name (empty if unset).
+func (s *Server) TextModelName() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return strings.TrimSpace(s.service.Text.Model)
+}
+
 func (s *Server) CreateTask(req CreateTaskRequest) (*Task, error) {
 	return s.createTask(req)
 }
